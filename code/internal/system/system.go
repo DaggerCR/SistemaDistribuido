@@ -146,12 +146,12 @@ func (s *System) HandleNodes(conn net.Conn) {
 			fmt.Println("Error reading from client:", err)
 			return
 		}
-		s.HandleReceivedData(buf[:n], n)
+		s.HandleReceivedData(buf[:n], n, conn)
 	}
 }
 
 // HandleReceivedData processes messages received from nodes.
-func (s *System) HandleReceivedData(buffer []byte, size int) {
+func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 	msg, err := message.InterpretMessage(buffer, size)
 	if err != nil {
 		fmt.Println("Erroneous message received, ignoring...")
@@ -165,7 +165,7 @@ func (s *System) HandleReceivedData(buffer []byte, size int) {
 		s.ReceiveHeartbeat(NodeId(msg.Sender))
 	case message.NotifyNodeUp:
 		s.ReceiveHeartbeat(NodeId(msg.Sender))
-		s.ReceiveNodeUp(NodeId(msg.Sender))
+		s.ReceiveNodeUp(NodeId(msg.Sender), conn)
 	default:
 		fmt.Println("Unknown action received.")
 	}
@@ -177,8 +177,10 @@ func (s *System) ReceiveHeartbeat(nodeId NodeId) {
 }
 
 // ReceiveNodeUp handlefs a node coming online.
-func (s *System) ReceiveNodeUp(nodeId NodeId) {
+func (s *System) ReceiveNodeUp(nodeId NodeId, conn net.Conn) {
 	fmt.Printf("Node %d is online.\n", nodeId)
+	s.AppendNode(nodeId, conn)
+	s.AddToLoadBalance(nodeId)
 }
 
 // StartHeartbeatChecker periodically checks node health.
@@ -240,10 +242,16 @@ func (s *System) GetLoadBalance(nodeId NodeId) (Load, bool) {
 }
 
 // RemoveLoadBalance removes a node from the load balance map.
-func (s *System) RemoveLoadBalance(nodeId NodeId) {
+func (s *System) RemoveFromLoadBalance(nodeId NodeId) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.loadBalance, nodeId)
+}
+
+func (s *System) AddToLoadBalance(nodeId NodeId) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.loadBalance[nodeId] = 0
 }
 
 // UpdateHealthRegistry updates the health registry for a node.

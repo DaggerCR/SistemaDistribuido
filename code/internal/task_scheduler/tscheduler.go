@@ -1,7 +1,6 @@
 package tscheduler
 
 import (
-	"distributed-system/internal/process"
 	"distributed-system/internal/task"
 	"distributed-system/pkg/utils"
 	"fmt"
@@ -71,6 +70,29 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc int
 	return tasks, len(tasks), nil
 }
 
-func (ts *TScheduler) asignTasks(tasks []task.Task, proc *process.Process, nodeBalance map[NodeId]Load) {
+/*
+func (ts *TScheduler) asignTasks(tasks []task.Task, sys *System) {
+	idx := 0
+	sys.mu.RLock()
+
+	for _, val := range systemNodes {
+		content := fmt.Sprintf("Asigned task with id %v from process: %v", tasks[idx].Id, tasks[idx].IdProc)
+		msg := message.NewMessage(message.AsignTask, content, tasks[idx], 0)
+		if err := message.SendMessage(*msg, val); err != nil {
+			ts.AppendToTaskQueue(tasks[idx])
+			idx++
+			continue
+		}
+	}
+
+	sys.mu.RUnlock()
+	if len(tasks) > len(sys.systemNodes) {
+		lessLoadedNodes := sys.ProbeLessLoadedNodes()
+
+		//if num of tasks is greater than num of nodes, asign rest of tasks between less loaded nodes
+		for nodeId := range lessLoadedNodes {
+		}
+	}
 
 }
+*/
