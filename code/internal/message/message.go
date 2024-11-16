@@ -1,49 +1,69 @@
 package message
 
-import "distributed-system/internal/task"
+import (
+	"distributed-system/internal/task"
+	"encoding/json"
+	"fmt"
+	"net"
+)
 
 type ActionType string
 
 const (
-	heartbeat    ActionType = "hearbeat"
-	removeTask   ActionType = "removeTask"
-	unlockTask   ActionType = "unlockTask"
-	returnedRes  ActionType = "returnedRes"
-	asignTask    ActionType = "asignTask"
-	rejectAsign  ActionType = "rejectAsign"
-	notifyNodeUp ActionType = "nodeUp"
+	Heartbeat     ActionType = "hearbeat"
+	RemoveTask    ActionType = "removeTask"
+	ReturnedRes   ActionType = "returnedRes"
+	AsignTask     ActionType = "asignTask"
+	RejectAsign   ActionType = "rejectAsign"
+	NotifyNodeUp  ActionType = "nodeUp"
+	CleanUp       ActionType = "cleanUp"
+	ActionSuccess ActionType = "success"
+	ActionFailure ActionType = "failure"
 )
 
 type Message struct {
-	action  ActionType
-	content string
-	task    task.Task
+	Action           ActionType `json:"action"`
+	Content          string
+	Task             task.Task
+	Sender           int      `json:"idNode"`
+	ConnectionHandle net.Conn `json:"ConnectionHandle"`
 }
 
-func (m *Message) NewMessage() *Message {
-	return &Message{}
+func NewMessage(action ActionType, content string, task task.Task, sender int) *Message {
+	return &Message{
+		Action:  action,
+		Content: content,
+		Task:    task,
+		Sender:  sender,
+	}
 }
 
-// Getters
-
-// Action returns the action in the Message.
-func (m *Message) Action() ActionType {
-	return m.action
+func NewMessageNoTask(action ActionType, content string, sender int) *Message {
+	return &Message{
+		Action:  action,
+		Content: content,
+		Task:    task.Task{},
+		Sender:  sender,
+	}
 }
 
-// Task returns the task in the Message.
-func (m *Message) Task() task.Task {
-	return m.task
+func SendMessage(msg Message, conn net.Conn) error {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("error marshaling message: %w", err)
+	}
+	_, err = conn.Write(data)
+	if err != nil {
+		return fmt.Errorf("error sending data: %w", err)
+	}
+	return nil
 }
 
-// Setters
-
-// SetAction sets the action in the Message.
-func (m *Message) SetAction(action ActionType) {
-	m.action = action
-}
-
-// SetTask sets the task in the Message.
-func (m *Message) SetTask(task task.Task) {
-	m.task = task
+func InterpretMessage(buffer []byte, size int) (*Message, error) {
+	var msg Message
+	err := json.Unmarshal(buffer[:size], &msg)
+	if err != nil {
+		return &Message{}, fmt.Errorf("error unmarshaling: %v", err)
+	}
+	return &msg, nil
 }

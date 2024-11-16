@@ -1,6 +1,14 @@
 package tscheduler
 
-import "distributed-system/internal/task"
+import (
+	"distributed-system/internal/process"
+	"distributed-system/internal/task"
+	"distributed-system/pkg/utils"
+	"fmt"
+)
+
+type NodeId int
+type Load int
 
 type TScheduler struct {
 	taskRegistry []task.Task //data redundancy (to manage task reasignment )
@@ -46,4 +54,23 @@ func (ts *TScheduler) AppendToTaskRegistry(task task.Task) {
 // AppendToTaskQueue adds a single task to the taskQueue slice.
 func (ts *TScheduler) AppendToTaskQueue(task task.Task) {
 	ts.taskQueue = append(ts.taskQueue, task)
+}
+
+func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc int) ([]task.Task, int, error) {
+	//numNodes never passes as less than or equal 0
+	chunkLen := len(entryArray) / numNodes
+	var tasks []task.Task
+	chunks, err := utils.SliceUpArray(entryArray, chunkLen)
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not create task for procedure in this moment: %w", err)
+	}
+	for idx, chunk := range chunks {
+		newTask := task.NewTask(idProc+idx, idProc, chunk)
+		tasks = append(tasks, *newTask)
+	}
+	return tasks, len(tasks), nil
+}
+
+func (ts *TScheduler) asignTasks(tasks []task.Task, proc *process.Process, nodeBalance map[NodeId]Load) {
+
 }

@@ -1,51 +1,34 @@
 package main
 
 import (
-	"bufio"
+	"distributed-system/internal/node"
+	"distributed-system/pkg/customerrors"
 	"distributed-system/pkg/utils"
 	"fmt"
-	"net"
 	"os"
-	"strings"
+	"strconv"
 )
 
 func main() {
+	args := os.Args
 	utils.LoadVEnv()
-	protocol := os.Getenv("PROTOCOL")
-	port := os.Getenv("PORT")
-	conn, err := net.Dial(protocol, port)
-	if err != nil {
-		fmt.Println("Error connecting to server:", err)
+
+	if len(args) <= 1 {
+		fmt.Println("no nodeid provided")
 		os.Exit(1)
 	}
-	defer conn.Close()
 
-	fmt.Println("Connected to server. Type messages and press Enter to send.")
-
-	go func() {
-		// Receiving messages from the server
-		for {
-			response, err := bufio.NewReader(conn).ReadString('\n')
-			if err != nil {
-				fmt.Println("Server disconnected:", err)
-				os.Exit(0)
-			}
-			fmt.Print("Server response: " + response)
-		}
-	}()
-
-	// Sending messages to the server
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		text := scanner.Text()
-		if strings.ToLower(text) == "exit" {
-			fmt.Println("Exiting...")
-			break
-		}
-		_, err := fmt.Fprintf(conn, text+"\n")
-		if err != nil {
-			fmt.Println("Error sending message:", err)
-			break
-		}
+	protocol := os.Getenv("PROTOCOL")
+	port := os.Getenv("PORT")
+	host := os.Getenv("HOST")
+	address := fmt.Sprintf("%s:%s", host, port)
+	id, _ := strconv.Atoi(args[1])
+	fmt.Println("Id for new node is: ", id)
+	//connect node
+	nnode, err := node.SetUpConnection(protocol, address, id)
+	if err != nil {
+		customerrors.HandleError(err)
 	}
+	nnode.HandleNodeConnection()
+
 }
