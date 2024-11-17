@@ -3,7 +3,8 @@ package system
 import (
 	"bytes"
 	"distributed-system/internal/message"
-	tscheduler "distributed-system/internal/task_scheduler"
+	"distributed-system/internal/task"
+	tscheduler "distributed-system/internal/tscheduler"
 	"distributed-system/pkg/customerrors"
 	"distributed-system/pkg/utils"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -139,7 +142,7 @@ func (s *System) HandleNodes(conn net.Conn) {
 			fmt.Println("Error reading from client:", err)
 			return
 		}
-		s.HandleReceivedData(buf[:n], n, conn)
+		go s.HandleReceivedData(buf[:n], n, conn)
 	}
 }
 
@@ -159,6 +162,12 @@ func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 	case message.NotifyNodeUp:
 		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
 		s.ReceiveNodeUp(utils.NodeId(msg.Sender), conn)
+	case message.ActionSuccess:
+		if msg.Task.Id != -1 {
+			s.ReceiveSuccess(utils.NodeId(msg.Sender), buffer, msg.Task)
+		} else {
+			s.ReceiveSuccess(utils.NodeId(msg.Sender), buffer)
+		}
 	default:
 		fmt.Println("Unknown action received.")
 	}
@@ -173,7 +182,69 @@ func (s *System) ReceiveHeartbeat(nodeId utils.NodeId) {
 func (s *System) ReceiveNodeUp(nodeId utils.NodeId, conn net.Conn) {
 	fmt.Printf("Node %d is online.\n", nodeId)
 	s.AppendNode(nodeId, conn)
+	s.muConn.Lock()
+	fmt.Println("Quantity of nodes now is: ", len(s.systemNodes))
+	s.muConn.Unlock()
 	//s.AddToLoadBalance(nodeId)
+}
+
+func (s *System) ReceiveSuccess(nodeId utils.NodeId, buffer []byte, tasks ...task.Task) {
+	if len(tasks) > 0 {
+		s.ReceiveTaskSuccess(nodeId, buffer, tasks[0])
+	} else {
+		fmt.Println("Failure")
+	}
+}
+
+func (s *System) ParseResult(buffer []byte) float64 {
+	// Split the string to isolate the number
+	data := string(buffer)
+	parts := strings.Split(data, ":")
+	if len(parts) != 2 {
+		fmt.Println("Invalid format")
+		return 0.0
+	}
+	// Trim spaces and parse the number
+	numberStr := strings.TrimSpace(parts[1])
+	number, err := strconv.ParseFloat(numberStr, 64)
+	if err != nil {
+		fmt.Println("Error parsing float:", err)
+		return 0.0
+	}
+	return number
+}
+
+func (s *System) ReceiveTaskSuccess(nodeId utils.NodeId, buffer []byte, task task.Task) {
+	if !task.IsFinished {
+		currentLoad, ok := s.taskScheduler.GetLoadBalance(nodeId)
+		if !ok {
+			s.RemoveNodeSafely() //TODO
+		}
+		currentLoad++
+		s.taskScheduler.UpdateLoadBalance(nodeId, currentLoad)
+	} else {
+		res := s.ParseResult(buffer)
+		s.taskScheduler.UpdateProcessRes(task.IdProc, res)
+	}
+}
+
+func (s *System) ReceiveFailure(nodeId utils.NodeId, conn net.Conn, tasks ...task.Task) {
+	if len(tasks) > 0 {
+		s.ReceiveTaskFailure(nodeId, conn, tasks[0])
+	} else {
+		fmt.Println("Failure")
+	}
+}
+
+func (s *System) ReceiveTaskFailure(nodeId utils.NodeId, conn net.Conn, task task.Task) {
+	if !task.IsFinished {
+		//todo
+		fmt.Println("Receive task failure not implemented YET")
+	}
+}
+
+func (s *System) RemoveNodeSafely() {
+	//removes node from all instances where it is registered, additionally calls the taskscheduler implementation for task reasignment
 }
 
 // StartHeartbeatChecker periodically checks node health.
@@ -206,14 +277,6 @@ func (s *System) CheckHeartbeat() {
 	}
 }
 
-/*
-func (s *System) CreateNewProcess(array []float64) {
-	newProcessId := s.GetRandomIdNotInProcesses()
-	s.processMu.Lock()
-	defer s.processMu.Unlock()
-}
-*/
-
 // UpdateHealthRegistry updates the health registry for a node.
 func (s *System) UpdateHealthRegistry(nodeId utils.NodeId, checks utils.AccumulatedChecks) {
 	s.mu.Lock()
@@ -241,4 +304,18 @@ func (s *System) GetConnection(nodeId utils.NodeId) (net.Conn, bool) {
 	defer s.muConn.RUnlock()
 	conn, exists := s.systemNodes[nodeId]
 	return conn, exists
+}
+
+func (s *System) CreateNewProcess(entryArray []float64) error {
+	s.muConn.Lock()
+	defer s.muConn.Unlock()
+	_, err := s.taskScheduler.CreateNewProcess(entryArray, len(s.systemNodes), s.systemNodes)
+	if err != nil {
+		return fmt.Errorf("error in process creation: %v", err)
+	}
+	return nil
+}
+
+func (s *System) TaskScheduler() *tscheduler.TScheduler {
+	return &s.taskScheduler
 }

@@ -22,11 +22,10 @@ const (
 )
 
 type Message struct {
-	Action           ActionType `json:"action"`
-	Content          string
-	Task             task.Task
-	Sender           int      `json:"idNode"`
-	ConnectionHandle net.Conn `json:"ConnectionHandle"`
+	Action  ActionType `json:"action"`
+	Content string
+	Task    task.Task
+	Sender  int `json:"idNode"`
 }
 
 func NewMessage(action ActionType, content string, task task.Task, sender int) *Message {
@@ -42,7 +41,7 @@ func NewMessageNoTask(action ActionType, content string, sender int) *Message {
 	return &Message{
 		Action:  action,
 		Content: content,
-		Task:    task.Task{},
+		Task:    task.Task{Id: -1},
 		Sender:  sender,
 	}
 }

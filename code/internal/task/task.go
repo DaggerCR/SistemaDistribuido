@@ -1,13 +1,15 @@
 package task
 
+import "distributed-system/pkg/utils"
+
 type Task struct {
-	Id         int `json:"IdTask"`
-	IdProc     int
+	Id         utils.TaskId `json:"IdTask"`
+	IdProc     utils.ProcId
 	Chunk      []float64
 	IsFinished bool
 }
 
-func NewTask(id int, idProc int, chunk []float64) *Task {
+func NewTask(id utils.TaskId, idProc utils.ProcId, chunk []float64) *Task {
 	return &Task{
 		Id:         id,
 		IdProc:     idProc,

@@ -24,7 +24,6 @@ type Node struct {
 func NewNode(id int) (*Node, error) {
 	maxSize, err := strconv.Atoi(os.Getenv("MAX_TASKS"))
 	if err != nil {
-		fmt.Println("Test3")
 		return nil, fmt.Errorf("error creating an element %w", err)
 	}
 
@@ -66,7 +65,7 @@ func (n *Node) AppendTask(newTask task.Task) {
 	n.taskQueue = append(n.taskQueue, newTask)
 }
 
-func (n *Node) DeleteTask(id int) {
+func (n *Node) DeleteTask(id utils.TaskId) {
 	if len(n.taskQueue) == 0 {
 		return
 	}
@@ -124,13 +123,11 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 	fmt.Printf("Coneccion hacia: %v, %v\n", protocol, address)
 	nnode, err := NewNode(id)
 	if err != nil {
-		fmt.Println("Test1")
 		Panic(protocol, address, id, err)
 		os.Exit(1)
 	}
 	err = nnode.Connect(protocol, address)
 	if err != nil {
-		fmt.Println("Test2")
 		Panic(protocol, address, id, err)
 		os.Exit(1)
 	} else {
@@ -144,12 +141,13 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 }
 
 func (n *Node) HandleNodeConnection() error {
-	buf := make([]byte, 1024)
+	var messageQueue [][]byte
 	go n.sendHeartBeat()
+
 	for {
-		fmt.Println("Test 5")
-		size, err := n.conn.Read(buf)
-		fmt.Println("Test 6")
+		rawMsg := make([]byte, 1024)
+		size, err := n.conn.Read(rawMsg)
+		messageQueue := append(messageQueue, rawMsg)
 		if err != nil {
 			fmt.Println("Error reading from client:", err)
 			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
@@ -158,8 +156,7 @@ func (n *Node) HandleNodeConnection() error {
 				return fmt.Errorf("error handling connection up: %w", err)
 			}
 		}
-		fmt.Printf("Test 4")
-		n.HandleReceivedData(buf[:size], size)
+		go n.HandleReceivedData(messageQueue[len(messageQueue)-1][:size], size)
 	}
 }
 
@@ -187,9 +184,10 @@ func (n *Node) HandleReceivedData(buffer []byte, size int) {
 	switch msg.Action {
 	case message.AsignTask:
 		n.AppendTask(msg.Task)
-		content := fmt.Sprintf("Task asigned: %v", msg.Task.Id)
+		content := fmt.Sprintf("Task asigned: %v\n", msg.Task.Id)
 		nodeUpMsg := message.NewMessage(message.ActionSuccess, content, msg.Task, n.id)
 		message.SendMessage(*nodeUpMsg, n.conn)
+		fmt.Printf("Task chunk is: %v \n", msg.Task.Chunk)
 	case message.CleanUp:
 		n.SetTaskQueue([]task.Task{})
 		nodeUpMsg := message.NewMessage(message.ActionSuccess, "CleanUp completed", msg.Task, n.id)
