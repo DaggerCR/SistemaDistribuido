@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	sys := system.NewSystem()
+	sys := system.NewSystem(5)
 	go sys.StartSystem()
 	time.Sleep(4 * time.Second)
 	sys.AddNodes(2)

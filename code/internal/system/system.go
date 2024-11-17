@@ -3,7 +3,7 @@ package system
 import (
 	"bytes"
 	"distributed-system/internal/message"
-	"distributed-system/internal/process"
+	tscheduler "distributed-system/internal/task_scheduler"
 	"distributed-system/pkg/customerrors"
 	"distributed-system/pkg/utils"
 	"fmt"
@@ -11,31 +11,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 )
 
-type NodeId int
-type Load int
-type AccumulatedChecks int
-
 type System struct {
-	processes      []*process.Process
-	loadBalance    map[NodeId]Load              // Regular map for load balancing
-	systemNodes    map[NodeId]net.Conn          // Regular map for system nodes
-	healthRegistry map[NodeId]AccumulatedChecks // Regular map for node health
-
-	mu        sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
-	processMu sync.Mutex   // Protects processes slice
+	systemNodes    map[utils.NodeId]net.Conn                // Regular map for system nodes
+	healthRegistry map[utils.NodeId]utils.AccumulatedChecks // Regular map for node health
+	taskScheduler  tscheduler.TScheduler
+	mu             sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
+	muConn         sync.RWMutex // Protects systemNodes
 }
 
 // NewSystem initializes the system.
-func NewSystem() *System {
+func NewSystem(defaultMaxNodeLoad int) *System {
 	return &System{
-		loadBalance:    make(map[NodeId]Load),
-		systemNodes:    make(map[NodeId]net.Conn),
-		healthRegistry: make(map[NodeId]AccumulatedChecks),
+		systemNodes:    make(map[utils.NodeId]net.Conn),
+		healthRegistry: make(map[utils.NodeId]utils.AccumulatedChecks),
+		taskScheduler:  *tscheduler.NewTScheduler(defaultMaxNodeLoad),
 	}
 }
 
@@ -90,7 +83,7 @@ func (s *System) AddNodes(quantity int) {
 		cmdPath := filepath.Join(wd, "cmd", "node", "main.go")
 
 		// Create the command
-		cmd := exec.Command("go", "run", cmdPath, fmt.Sprint(GetRandomIdNotInNodes(s.systemNodes)))
+		cmd := exec.Command("go", "run", cmdPath, fmt.Sprint(s.GetRandomIdNotInNodes()))
 
 		// Capture output for debugging
 		var out bytes.Buffer
@@ -125,12 +118,12 @@ func (s *System) AddNodes(quantity int) {
 	}
 }
 
-func GetRandomIdNotInNodes(m map[NodeId]net.Conn) int {
+func (s *System) GetRandomIdNotInNodes() int {
 	for {
 		// Generate a random number using GenRandomUint
 		num := utils.GenRandomUint()
 		// Check if the number is not in the map
-		if _, exists := m[NodeId(num)]; !exists {
+		if _, exists := s.GetConnection(utils.NodeId(num)); !exists {
 			return int(num)
 		}
 	}
@@ -162,25 +155,25 @@ func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 	}
 	switch msg.Action {
 	case message.Heartbeat:
-		s.ReceiveHeartbeat(NodeId(msg.Sender))
+		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
 	case message.NotifyNodeUp:
-		s.ReceiveHeartbeat(NodeId(msg.Sender))
-		s.ReceiveNodeUp(NodeId(msg.Sender), conn)
+		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
+		s.ReceiveNodeUp(utils.NodeId(msg.Sender), conn)
 	default:
 		fmt.Println("Unknown action received.")
 	}
 }
 
 // ReceiveHeartbeat resets the heartbeat count for a node.
-func (s *System) ReceiveHeartbeat(nodeId NodeId) {
+func (s *System) ReceiveHeartbeat(nodeId utils.NodeId) {
 	s.UpdateHealthRegistry(nodeId, 0)
 }
 
 // ReceiveNodeUp handlefs a node coming online.
-func (s *System) ReceiveNodeUp(nodeId NodeId, conn net.Conn) {
+func (s *System) ReceiveNodeUp(nodeId utils.NodeId, conn net.Conn) {
 	fmt.Printf("Node %d is online.\n", nodeId)
 	s.AppendNode(nodeId, conn)
-	s.AddToLoadBalance(nodeId)
+	//s.AddToLoadBalance(nodeId)
 }
 
 // StartHeartbeatChecker periodically checks node health.
@@ -193,12 +186,13 @@ func (s *System) StartHeartbeatChecker() {
 	}
 }
 
-// CheckHeartbeat increments health counters and removes unresponsive nodes.
 func (s *System) CheckHeartbeat() {
 	fmt.Println("Checking heartbeat of nodes...")
 
-	s.mu.Lock()
+	s.mu.Lock()     // Lock for healthRegistry
+	s.muConn.Lock() // Lock for systemNodes
 	defer s.mu.Unlock()
+	defer s.muConn.Unlock()
 
 	for nodeId, checks := range s.healthRegistry {
 		newChecks := checks + 1
@@ -212,93 +206,39 @@ func (s *System) CheckHeartbeat() {
 	}
 }
 
-// Processes returns the slice of processes in the system.
-func (s *System) Processes() []*process.Process {
+/*
+func (s *System) CreateNewProcess(array []float64) {
+	newProcessId := s.GetRandomIdNotInProcesses()
 	s.processMu.Lock()
 	defer s.processMu.Unlock()
-	return s.processes
 }
-
-// SetProcesses updates the processes slice in the system.
-func (s *System) SetProcesses(processes []*process.Process) {
-	s.processMu.Lock()
-	defer s.processMu.Unlock()
-	s.processes = processes
-}
-
-// UpdateLoadBalance sets the load for a given NodeId.
-func (s *System) UpdateLoadBalance(nodeId NodeId, load Load) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.loadBalance[nodeId] = load
-}
-
-// GetLoadBalance retrieves the load for a given NodeId.
-func (s *System) GetLoadBalance(nodeId NodeId) (Load, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	load, ok := s.loadBalance[nodeId]
-	return load, ok
-}
-
-// RemoveLoadBalance removes a node from the load balance map.
-func (s *System) RemoveFromLoadBalance(nodeId NodeId) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.loadBalance, nodeId)
-}
-
-func (s *System) AddToLoadBalance(nodeId NodeId) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.loadBalance[nodeId] = 0
-}
+*/
 
 // UpdateHealthRegistry updates the health registry for a node.
-func (s *System) UpdateHealthRegistry(nodeId NodeId, checks AccumulatedChecks) {
+func (s *System) UpdateHealthRegistry(nodeId utils.NodeId, checks utils.AccumulatedChecks) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.healthRegistry[nodeId] = checks
 }
 
-// AppendNode adds a node to the system.
-func (s *System) AppendNode(nodeId NodeId, conn net.Conn) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// AppendNode safely adds a node and its connection to the systemNodes map.
+func (s *System) AppendNode(nodeId utils.NodeId, conn net.Conn) {
+	s.muConn.Lock()
+	defer s.muConn.Unlock()
 	s.systemNodes[nodeId] = conn
 }
 
-// RemoveSystemNode removes a node from the system.
-func (s *System) RemoveSystemNode(nodeId NodeId) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// RemoveSystemNode safely removes a node from the systemNodes map.
+func (s *System) RemoveSystemNode(nodeId utils.NodeId) {
+	s.muConn.Lock()
+	defer s.muConn.Unlock()
 	delete(s.systemNodes, nodeId)
 }
 
-// ProbeLessLoadedNodes retrieves nodes with the least load.
-func (s *System) ProbeLessLoadedNodes(amount int) []NodeId {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	// Collect all nodes and their loads
-	type nodeLoad struct {
-		nodeId NodeId
-		load   Load
-	}
-	var nodes []nodeLoad
-	for nodeId, load := range s.loadBalance {
-		nodes = append(nodes, nodeLoad{nodeId, load})
-	}
-
-	// Sort nodes by load in ascending order
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].load < nodes[j].load
-	})
-
-	// Return the `amount` least loaded nodes
-	result := make([]NodeId, 0, amount)
-	for i := 0; i < len(nodes) && i < amount; i++ {
-		result = append(result, nodes[i].nodeId)
-	}
-	return result
+// GetConnection safely retrieves a connection by utils.NodeId.
+func (s *System) GetConnection(nodeId utils.NodeId) (net.Conn, bool) {
+	s.muConn.RLock()
+	defer s.muConn.RUnlock()
+	conn, exists := s.systemNodes[nodeId]
+	return conn, exists
 }

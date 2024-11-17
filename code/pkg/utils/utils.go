@@ -12,6 +12,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Types
+type NodeId int
+type Load int
+type AccumulatedChecks int
+
+// functions
 func LoadVEnv() error {
 	if err := godotenv.Load(); err != nil {
 		return errors.New("internal server error")
@@ -50,29 +56,18 @@ func ReadEntry() string {
 func SliceUpArray(arrayToSum []float64, chunkSize int) ([][]float64, error) {
 	arraySize := len(arrayToSum)
 	if chunkSize <= 0 {
-		return nil, errors.New("impossible to assign task in an empty cluster")
+		return nil, errors.New("chunk size must be greater than 0")
 	} else if chunkSize > arraySize {
 		chunkSize = arraySize
 	}
 
-	// Reserve enough chunks for the main chunks
-	amountChunks := arraySize / chunkSize
 	var chunks [][]float64
-
-	// Create chunks of size `chunkSize`
-	for idx := 0; idx < amountChunks; idx++ {
-		start := idx * chunkSize
+	for start := 0; start < arraySize; start += chunkSize {
 		end := start + chunkSize
-		chunk := make([]float64, chunkSize)
-		copy(chunk, arrayToSum[start:end])
-		chunks = append(chunks, chunk)
-	}
-
-	// Handle the remainder elements by creating a separate slice for each
-	remainderStart := amountChunks * chunkSize
-	for i := remainderStart; i < arraySize; i++ {
-		chunk := []float64{arrayToSum[i]} // Create a single-element slice
-		chunks = append(chunks, chunk)
+		if end > arraySize {
+			end = arraySize
+		}
+		chunks = append(chunks, arrayToSum[start:end])
 	}
 
 	return chunks, nil

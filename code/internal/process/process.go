@@ -21,6 +21,10 @@ func NewProcess(id int) *Process {
 	}
 }
 
+func (p *Process) Id() int {
+	return p.id
+}
+
 func (p *Process) SetRes(val float64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
