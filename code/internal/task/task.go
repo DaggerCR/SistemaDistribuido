@@ -3,7 +3,7 @@ package task
 import "distributed-system/pkg/utils"
 
 type Task struct {
-	Id         utils.TaskId `json:"IdTask"`
+	Id         utils.TaskId
 	IdProc     utils.ProcId
 	Chunk      []float64
 	IsFinished bool

@@ -10,15 +10,15 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
 type Node struct {
 	id        int
 	taskQueue []task.Task
-	//messageQueue []message.Message
-	isActive bool
-	conn     net.Conn
+	conn      net.Conn
+	mu        sync.Mutex
 }
 
 func NewNode(id int) (*Node, error) {
@@ -37,11 +37,9 @@ func (n *Node) Id() int {
 	return n.id
 }
 
-func (n *Node) IsActive() bool {
-	return n.isActive
-}
-
 func (n *Node) TaskQueue() []task.Task {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	return n.taskQueue
 }
 
@@ -57,15 +55,15 @@ func (n *Node) SetTaskQueue(taskQueue []task.Task) {
 	n.taskQueue = taskQueue
 }
 
-func (n *Node) SetActive(isActive bool) {
-	n.isActive = isActive
-}
-
 func (n *Node) AppendTask(newTask task.Task) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.taskQueue = append(n.taskQueue, newTask)
 }
 
 func (n *Node) DeleteTask(id utils.TaskId) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	if len(n.taskQueue) == 0 {
 		return
 	}
@@ -79,6 +77,8 @@ func (n *Node) DeleteTask(id utils.TaskId) {
 }
 
 func (n *Node) PopTask(idx int) (task.Task, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	deletedTask, isSafe := task.SafeTaskAccess(n.taskQueue, idx)
 	if !isSafe {
 		return task.Task{}, errors.New("no task found for pop action")
@@ -87,6 +87,8 @@ func (n *Node) PopTask(idx int) (task.Task, error) {
 }
 
 func (n *Node) calcSum(idx int) float64 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	var sum float64
 	chunk := n.taskQueue[idx].Chunk
 	for _, val := range chunk {
@@ -176,7 +178,6 @@ func (n *Node) sendHeartBeat() {
 }
 
 func (n *Node) HandleReceivedData(buffer []byte, size int) {
-	fmt.Printf("Me, node %v, recieved message from master\n", n.id)
 	msg, err := message.InterpretMessage(buffer, size)
 	if err != nil {
 		errorMsg := message.NewMessageNoTask(message.ActionFailure, "Invalid message revieved", n.id)
@@ -185,80 +186,21 @@ func (n *Node) HandleReceivedData(buffer []byte, size int) {
 	fmt.Printf("Me, node %v, recieved content: %v\n", n.id, msg.Content)
 	switch msg.Action {
 	case message.AsignTask:
-		n.AppendTask(msg.Task)
-		content := fmt.Sprintf("Task asigned: %v\n", msg.Task.Id)
-		nodeUpMsg := message.NewMessage(message.ActionSuccess, content, msg.Task, n.id)
-		message.SendMessage(*nodeUpMsg, n.conn)
-		fmt.Printf("Task chunk is: %v \n", msg.Task.Chunk)
+		n.ReceiveAsignTask(msg.Task, utils.NodeId(msg.Sender))
+
 	case message.CleanUp:
 		n.SetTaskQueue([]task.Task{})
-		nodeUpMsg := message.NewMessage(message.ActionSuccess, "CleanUp completed", msg.Task, n.id)
+		nodeUpMsg := message.NewMessageNoTask(message.ActionSuccess, "CleanUp completed", n.id)
 		message.SendMessage(*nodeUpMsg, n.conn)
 	default:
-		fmt.Println("Not implemented yet")
+		fmt.Println("Not implemented yet", msg.Content, "*")
 	}
 }
 
-//
-//
-//
-
-//JOSI
-
-func (n *Node) ConnectToSystem() {
-	utils.LoadVEnv()
-	protocol := os.Getenv("PROTOCOL")
-	port := os.Getenv("PORT")
-	host := os.Getenv("HOST")
-	address := fmt.Sprintf("%s:%s", host, port)
-	conn, err := net.Dial(protocol, address)
-	if err != nil {
-		fmt.Println("Error connecting to server:", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-	fmt.Printf("Node %d connected to server succesfully\n", n.id)
-	n.conn = conn
-	n.ReceiveMessageFromSystem(conn)
-	n.ReturnHeartbeat(conn)
+func (n *Node) ReceiveAsignTask(task task.Task, nodeId utils.NodeId) {
+	n.AppendTask(task)
+	content := fmt.Sprintf("Task asigned: %v\n", task.Id)
+	fmt.Println("Taks was asigned; overview of tasks: ", task)
+	nodeUpMsg := message.NewMessage(message.ActionSuccess, content, task, n.id)
+	message.SendMessage(*nodeUpMsg, n.conn)
 }
-
-//Revisar esto, MUST CHANGE
-
-func (n *Node) SendMessageToSystem(conn net.Conn, message string) {
-	_, err := conn.Write([]byte(message))
-	if err != nil {
-		fmt.Println("Error sending message:", err)
-		return
-	}
-}
-
-func (n *Node) ReceiveMessageFromSystem(conn net.Conn) {
-	buf := make([]byte, 1024)
-	num, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println("Error reading response:", err)
-		return
-	}
-	fmt.Printf("Me, node %d , received from server: %s \n", n.id, string(buf[:num]))
-}
-
-func (n *Node) ReturnHeartbeat(conn net.Conn) {
-	for {
-		//Node will send msj to system as 'heatbeat'
-		message := strconv.Itoa(n.id) + "-heartbeat"
-		n.SendMessageToSystem(conn, message)
-		time.Sleep(3 * time.Second)
-	}
-}
-
-func (n *Node) ReturnHeartbeat2() {
-	for {
-		//Node will send msj to system as 'heatbeat'
-		msg := message.NewMessageNoTask(message.Heartbeat, "", n.id)
-		message.SendMessage(*msg, n.conn)
-		time.Sleep(3 * time.Second)
-	}
-}
-
-//todo: calc for std deviation and mean

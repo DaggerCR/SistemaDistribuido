@@ -187,7 +187,7 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc uti
 	return tasks, len(tasks), nil
 }
 
-func (ts *TScheduler) asignTasks(tasks []task.Task, connections map[utils.NodeId]net.Conn) {
+func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId]net.Conn) {
 	idx := 0 // Tracks the number of tasks assigned so far
 
 	// Retrieve the maximum allowed load per node from the environment or use a default
@@ -208,7 +208,7 @@ func (ts *TScheduler) asignTasks(tasks []task.Task, connections map[utils.NodeId
 
 		// Assign the task to this node
 		task := tasks[idx]
-		content := fmt.Sprintf("Assigned task with id %v from process: %v", task.Id, task.IdProc)
+		content := fmt.Sprintf("Assigned task with id %v from process: %v to node: %v", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
 		if err := message.SendMessage(*msg, conn); err != nil {
 			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
@@ -234,7 +234,7 @@ func (ts *TScheduler) asignTasks(tasks []task.Task, connections map[utils.NodeId
 		// Assign remaining tasks
 		task := tasks[idx]
 		conn := connections[nodeId]
-		content := fmt.Sprintf("Assigned task with id %v from process: %v", task.Id, task.IdProc)
+		content := fmt.Sprintf("Assigned task with id %v from process: %v to node: %v", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
 		if err := message.SendMessage(*msg, conn); err != nil {
 			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
@@ -292,7 +292,7 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 		return 0, fmt.Errorf(initialErrorMsg+": %v", err)
 	}
 	fmt.Printf("\n\n Task created were %v: \n %v \n\n", numTasks, tasks)
-	ts.asignTasks(tasks, connections)
+	ts.AsignTasks(tasks, connections)
 	return numTasks, nil
 }
 

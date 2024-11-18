@@ -135,7 +135,7 @@ func (s *System) GetRandomIdNotInNodes() int {
 // HandleNodes processes data from connected nodes.
 func (s *System) HandleNodes(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -150,7 +150,7 @@ func (s *System) HandleNodes(conn net.Conn) {
 func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 	msg, err := message.InterpretMessage(buffer, size)
 	if err != nil {
-		fmt.Println("Erroneous message received, ignoring...")
+		fmt.Println("Erroneous message received, ignoring...", err)
 		return
 	}
 	if msg.Action != message.Heartbeat {
@@ -163,13 +163,13 @@ func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
 		s.ReceiveNodeUp(utils.NodeId(msg.Sender), conn)
 	case message.ActionSuccess:
-		if msg.Task.Id != -1 {
+		if msg.Task.Id != -1 { //-1 as task id to tell that message didnt have task, this because go converts missing values in any declaration to "default" values (this case tasks )
 			s.ReceiveSuccess(utils.NodeId(msg.Sender), buffer, msg.Task)
 		} else {
 			s.ReceiveSuccess(utils.NodeId(msg.Sender), buffer)
 		}
 	default:
-		fmt.Println("Unknown action received.")
+		fmt.Println("Unknown action received.", msg.Content)
 	}
 }
 
@@ -192,7 +192,7 @@ func (s *System) ReceiveSuccess(nodeId utils.NodeId, buffer []byte, tasks ...tas
 	if len(tasks) > 0 {
 		s.ReceiveTaskSuccess(nodeId, buffer, tasks[0])
 	} else {
-		fmt.Println("Failure")
+		fmt.Println("Success")
 	}
 }
 
@@ -258,7 +258,7 @@ func (s *System) StartHeartbeatChecker() {
 }
 
 func (s *System) CheckHeartbeat() {
-	fmt.Println("Checking heartbeat of nodes...")
+	//fmt.Println("Checking heartbeat of nodes...")
 
 	s.mu.Lock()     // Lock for healthRegistry
 	s.muConn.Lock() // Lock for systemNodes
