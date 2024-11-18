@@ -1,0 +1,9 @@
+time="2024-11-18T11:50:57-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T13:45:12-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T14:18:30-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T14:26:25-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T14:51:06-06:00" level=info msg="Exit system by user decision"
+time="2024-11-18T14:51:16-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T14:52:30-06:00" level=info msg="Exit system by user decision"
+time="2024-11-18T14:52:43-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-18T14:58:35-06:00" level=info msg="Exit system by user decision"

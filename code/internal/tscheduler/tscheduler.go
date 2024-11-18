@@ -210,7 +210,7 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		task := tasks[idx]
 		content := fmt.Sprintf("Assigned task with id %v from process: %v to node: %v", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
-		if err := message.SendMessage(*msg, conn); err != nil {
+		if err := message.SendMessage(msg, conn); err != nil {
 			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
 			ts.AppendToTaskWaitlist(task.Id, task)
 			continue
@@ -236,7 +236,7 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		conn := connections[nodeId]
 		content := fmt.Sprintf("Assigned task with id %v from process: %v to node: %v", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
-		if err := message.SendMessage(*msg, conn); err != nil {
+		if err := message.SendMessage(msg, conn); err != nil {
 			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
 			ts.AppendToTaskWaitlist(task.Id, task)
 			continue

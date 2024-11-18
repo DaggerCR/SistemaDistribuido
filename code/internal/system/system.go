@@ -135,20 +135,19 @@ func (s *System) GetRandomIdNotInNodes() int {
 // HandleNodes processes data from connected nodes.
 func (s *System) HandleNodes(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 4096)
 	for {
-		n, err := conn.Read(buf)
+		buffer, err := message.RecieveMessage(conn)
 		if err != nil {
 			fmt.Println("Error reading from client:", err)
 			return
 		}
-		go s.HandleReceivedData(buf[:n], n, conn)
+		go s.HandleReceivedData(buffer, conn)
 	}
 }
 
 // HandleReceivedData processes messages received from nodes.
-func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
-	msg, err := message.InterpretMessage(buffer, size)
+func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
+	msg, err := message.InterpretMessage(buffer)
 	if err != nil {
 		fmt.Println("Erroneous message received, ignoring...", err)
 		return

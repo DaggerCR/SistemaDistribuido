@@ -2,9 +2,13 @@ package message
 
 import (
 	"distributed-system/internal/task"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
+	"sync"
 )
 
 type ActionType string
@@ -26,6 +30,7 @@ type Message struct {
 	Content string
 	Task    task.Task
 	Sender  int
+	mu      sync.Mutex
 }
 
 func NewMessage(action ActionType, content string, task task.Task, sender int) *Message {
@@ -46,23 +51,50 @@ func NewMessageNoTask(action ActionType, content string, sender int) *Message {
 	}
 }
 
-func SendMessage(msg Message, conn net.Conn) error {
+func SendMessage(msg *Message, conn net.Conn) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("error marshaling message: %w", err)
 	}
+	messageLenght := uint32(len(data))
+	header := make([]byte, 4)
+	binary.BigEndian.PutUint32(header, messageLenght)
+	data = append(header, data...)
+	msg.mu.Lock()
+	defer msg.mu.Unlock()
 	_, err = conn.Write(data)
 	if err != nil {
 		return fmt.Errorf("error sending data: %w", err)
 	}
+	//fmt.Println("Message lenght SENT was: ", messageLenght)
 	return nil
 }
 
-func InterpretMessage(buffer []byte, size int) (*Message, error) {
+func InterpretMessage(buffer []byte) (*Message, error) {
 	var msg Message
-	err := json.Unmarshal(buffer[:size], &msg)
+	//strip 4 bytes from header size
+	if len(buffer) < 4 {
+		return &Message{}, errors.New("size of message to small")
+	}
+	err := json.Unmarshal(buffer, &msg)
 	if err != nil {
 		return &Message{}, fmt.Errorf("error unmarshaling: %v", err)
 	}
 	return &msg, nil
+}
+
+func RecieveMessage(conn net.Conn) ([]byte, error) {
+	header := make([]byte, 4)
+	_, err := io.ReadFull(conn, header)
+	if err != nil {
+		return nil, fmt.Errorf("error reading header :%v", err)
+	}
+	messageLenght := binary.BigEndian.Uint32(header)
+	message := make([]byte, messageLenght)
+	_, err = io.ReadFull(conn, message)
+	if err != nil {
+		return nil, fmt.Errorf("error reading message: %v", err)
+	}
+	//fmt.Println("Message lenght RECEIVED was: ", messageLenght)
+	return message, nil
 }

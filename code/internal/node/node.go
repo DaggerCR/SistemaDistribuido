@@ -115,7 +115,7 @@ func Panic(protocol string, address string, id int, errorS error) {
 	defer conn.Close()
 	content := fmt.Sprintf("Failed to create or connect node, panic! : %v", errorS)
 	msg := message.NewMessageNoTask(message.ActionFailure, content, id)
-	err = message.SendMessage(*msg, conn)
+	err = message.SendMessage(msg, conn)
 	if err != nil {
 		customerrors.HandleError(err)
 	}
@@ -134,7 +134,7 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 		os.Exit(1)
 	} else {
 		msg := message.NewMessageNoTask(message.NotifyNodeUp, "Node created succesfully", id)
-		err = message.SendMessage(*msg, nnode.Conn())
+		err = message.SendMessage(msg, nnode.Conn())
 	}
 	if err != nil {
 		return &Node{}, fmt.Errorf("error seting connection up: %w", err)
@@ -144,10 +144,8 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 
 func (n *Node) HandleNodeConnection() error {
 	go n.sendHeartBeat()
-
 	for {
-		buff := make([]byte, 4096)
-		size, err := n.conn.Read(buff)
+		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
 			if err.Error() == "EOF" {
 				fmt.Println("Conection with System port lost") //cuando se cierra el servidor aparece este mensaje
@@ -155,12 +153,12 @@ func (n *Node) HandleNodeConnection() error {
 				fmt.Println("Error reading from client...:", err)
 			}
 			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
-			err = message.SendMessage(*msg, n.conn)
+			err = message.SendMessage(msg, n.conn)
 			if err != nil {
 				return fmt.Errorf("error handling connection up: %w", err)
 			}
 		}
-		go n.HandleReceivedData(buff[:size], size)
+		go n.HandleReceivedData(buffer)
 	}
 }
 
@@ -169,7 +167,7 @@ func (n *Node) sendHeartBeat() {
 	defer ticker.Stop()
 	for range ticker.C {
 		msg := message.NewMessageNoTask(message.Heartbeat, "Heartbeat", n.id)
-		err := message.SendMessage(*msg, n.conn)
+		err := message.SendMessage(msg, n.conn)
 		if err != nil {
 			fmt.Println("Error sending heartBeat up: %w", err)
 			return
@@ -177,11 +175,11 @@ func (n *Node) sendHeartBeat() {
 	}
 }
 
-func (n *Node) HandleReceivedData(buffer []byte, size int) {
-	msg, err := message.InterpretMessage(buffer, size)
+func (n *Node) HandleReceivedData(buffer []byte) {
+	msg, err := message.InterpretMessage(buffer)
 	if err != nil {
 		errorMsg := message.NewMessageNoTask(message.ActionFailure, "Invalid message revieved", n.id)
-		message.SendMessage(*errorMsg, n.conn)
+		message.SendMessage(errorMsg, n.conn)
 	}
 	fmt.Printf("Me, node %v, recieved content: %v\n", n.id, msg.Content)
 	switch msg.Action {
@@ -191,7 +189,7 @@ func (n *Node) HandleReceivedData(buffer []byte, size int) {
 	case message.CleanUp:
 		n.SetTaskQueue([]task.Task{})
 		nodeUpMsg := message.NewMessageNoTask(message.ActionSuccess, "CleanUp completed", n.id)
-		message.SendMessage(*nodeUpMsg, n.conn)
+		message.SendMessage(nodeUpMsg, n.conn)
 	default:
 		fmt.Println("Not implemented yet", msg.Content, "*")
 	}
@@ -202,5 +200,5 @@ func (n *Node) ReceiveAsignTask(task task.Task, nodeId utils.NodeId) {
 	content := fmt.Sprintf("Task asigned: %v\n", task.Id)
 	fmt.Println("Taks was asigned; overview of tasks: ", task)
 	nodeUpMsg := message.NewMessage(message.ActionSuccess, content, task, n.id)
-	message.SendMessage(*nodeUpMsg, n.conn)
+	message.SendMessage(nodeUpMsg, n.conn)
 }
