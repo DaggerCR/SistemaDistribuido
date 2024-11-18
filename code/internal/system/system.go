@@ -54,7 +54,7 @@ func (s *System) OpenServer() {
 	host := os.Getenv("HOST")
 
 	address := fmt.Sprintf("%s:%s", host, port)
-	fmt.Printf("Coneccion desde: %v,%v\n", protocol, address)
+	fmt.Printf("Conexion de tipo %v, en el puerto %v\n", protocol, address)
 	listener, err := net.Listen(protocol, address)
 
 	if err != nil {
@@ -154,7 +154,7 @@ func (s *System) HandleReceivedData(buffer []byte, size int, conn net.Conn) {
 		return
 	}
 	if msg.Action != message.Heartbeat {
-		fmt.Printf("Master received message from: %v, content: %v\n", msg.Sender, msg.Content)
+		fmt.Printf("Master received message with an ID of: %v, content: %v\n", msg.Sender, msg.Content)
 	}
 	switch msg.Action {
 	case message.Heartbeat:

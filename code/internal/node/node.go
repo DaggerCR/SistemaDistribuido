@@ -120,7 +120,7 @@ func Panic(protocol string, address string, id int, errorS error) {
 }
 
 func SetUpConnection(protocol string, address string, id int) (*Node, error) {
-	fmt.Printf("Coneccion hacia: %v, %v\n", protocol, address)
+	fmt.Printf("Conexion de tipo: %v, en el puerto %v\n", protocol, address)
 	nnode, err := NewNode(id)
 	if err != nil {
 		Panic(protocol, address, id, err)
@@ -149,7 +149,11 @@ func (n *Node) HandleNodeConnection() error {
 		size, err := n.conn.Read(rawMsg)
 		messageQueue := append(messageQueue, rawMsg)
 		if err != nil {
-			fmt.Println("Error reading from client:", err)
+			if err.Error() == "EOF" {
+				fmt.Println("Conection with System port lost") //cuando se cierra el servidor aparece este mensaje
+			} else {
+				fmt.Println("Error reading from client...:", err)
+			}
 			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
 			err = message.SendMessage(*msg, n.conn)
 			if err != nil {

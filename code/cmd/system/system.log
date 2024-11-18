@@ -1,0 +1,6 @@
+time="2024-11-18T00:28:16-06:00" level=info msg="Starting system..." Node Load=5
+time="2024-11-18T00:28:48-06:00" level=warning msg="Invalid option selected by user" Option selected: =4
+time="2024-11-18T00:28:49-06:00" level=warning msg="Invalid option selected by user" Option selected: =4
+time="2024-11-18T00:28:50-06:00" level=warning msg="Invalid option selected by user" Option selected: =5
+time="2024-11-18T00:41:13-06:00" level=info msg="Exit system by user decision"
+time="2024-11-18T00:41:22-06:00" level=info msg="Starting system..." Node Load=5

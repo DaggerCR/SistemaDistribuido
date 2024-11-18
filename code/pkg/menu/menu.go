@@ -10,7 +10,7 @@ func displayMenuOptions() {
 	fmt.Println("1. Crear sistema con nodos")
 	fmt.Println("2. Asignar procesos a nodos")
 	fmt.Println("3. Simular fallo de nodo")
-	fmt.Println("3. Salir")
+	fmt.Println("4. Salir")
 	fmt.Print("Seleccione una opción: ")
 }
 
