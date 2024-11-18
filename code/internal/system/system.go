@@ -27,11 +27,11 @@ type System struct {
 }
 
 // NewSystem initializes the system.
-func NewSystem(defaultMaxNodeLoad int) *System {
+func NewSystem() *System {
 	return &System{
 		systemNodes:    make(map[utils.NodeId]net.Conn),
 		healthRegistry: make(map[utils.NodeId]utils.AccumulatedChecks),
-		taskScheduler:  *tscheduler.NewTScheduler(defaultMaxNodeLoad),
+		taskScheduler:  *tscheduler.NewTScheduler(),
 	}
 }
 
@@ -185,7 +185,7 @@ func (s *System) ReceiveNodeUp(nodeId utils.NodeId, conn net.Conn) {
 	s.muConn.Lock()
 	fmt.Println("Quantity of nodes now is: ", len(s.systemNodes))
 	s.muConn.Unlock()
-	//s.AddToLoadBalance(nodeId)
+	s.taskScheduler.AddToLoadBalance(nodeId)
 }
 
 func (s *System) ReceiveSuccess(nodeId utils.NodeId, buffer []byte, tasks ...task.Task) {

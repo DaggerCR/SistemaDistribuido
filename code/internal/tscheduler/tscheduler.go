@@ -16,23 +16,29 @@ import (
 )
 
 type TScheduler struct {
-	taskRegistry       map[utils.NodeId]task.Task //data redundancy (to manage task reasignment )
-	taskWaitlist       map[utils.TaskId]task.Task //queue for unasigned task (aka task that weren't able to fit due to load balancing or max load of all nodes reached)
-	processes          map[utils.ProcId]*process.Process
-	loadBalance        map[utils.NodeId]utils.Load // Regular map for load balancing
-	defaultMaxNodeLoad int
-	processMu          sync.Mutex   // Protects processes slice
-	mu                 sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
+	taskRegistry    map[utils.NodeId]task.Task //data redundancy (to manage task reasignment )
+	taskWaitlist    map[utils.TaskId]task.Task //queue for unasigned task (aka task that weren't able to fit due to load balancing or max load of all nodes reached)
+	processes       map[utils.ProcId]*process.Process
+	loadBalance     map[utils.NodeId]utils.Load // Regular map for load balancing
+	maxNodeTaskLoad int
+	processMu       sync.Mutex   // Protects processes slice
+	mu              sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
 }
 
+const DefaultMaxTasksPerNode = 10
+
 // NewTScheduler initializes and returns a new TScheduler instance.
-func NewTScheduler(defaultMaxNodeLoad int) *TScheduler {
+func NewTScheduler() *TScheduler {
+	maxNodeTaskLoadEnv := DefaultMaxTasksPerNode
+	if envVal, err := strconv.Atoi(os.Getenv("MAX_TASKS")); err == nil {
+		maxNodeTaskLoadEnv = envVal
+	}
 	return &TScheduler{
-		loadBalance:        make(map[utils.NodeId]utils.Load),
-		taskRegistry:       make(map[utils.NodeId]task.Task),
-		taskWaitlist:       make(map[utils.TaskId]task.Task),
-		processes:          make(map[utils.ProcId]*process.Process),
-		defaultMaxNodeLoad: defaultMaxNodeLoad,
+		loadBalance:     make(map[utils.NodeId]utils.Load),
+		taskRegistry:    make(map[utils.NodeId]task.Task),
+		taskWaitlist:    make(map[utils.TaskId]task.Task),
+		processes:       make(map[utils.ProcId]*process.Process),
+		maxNodeTaskLoad: maxNodeTaskLoadEnv,
 	}
 }
 
@@ -67,7 +73,7 @@ func (ts *TScheduler) AppendToTaskRegistry(nodeId utils.NodeId, task task.Task) 
 }
 
 // AppendToTaskQueue adds a single task to the taskWaitlist slice.
-func (ts *TScheduler) AppendToTaskQueue(taskId utils.TaskId, task task.Task) {
+func (ts *TScheduler) AppendToTaskWaitlist(taskId utils.TaskId, task task.Task) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.taskWaitlist[taskId] = task
@@ -115,6 +121,19 @@ func (ts *TScheduler) SetProcesses(processes map[utils.ProcId]*process.Process) 
 	ts.processes = processes
 }
 
+func (ts *TScheduler) GetTaskFromWaitlist(taskId utils.TaskId) (task.Task, bool) {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	task, exists := ts.taskWaitlist[taskId]
+	return task, exists
+}
+
+func (ts *TScheduler) RemoveFromTaskWaitlist(taskId utils.TaskId) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	delete(ts.taskWaitlist, taskId)
+}
+
 // ProbeLessLoadedNodes retrieves nodes with the least load while considering node connections.
 func (ts *TScheduler) ProbeLessLoadedNodes(amount int, systemNodes map[utils.NodeId]net.Conn) []utils.NodeId {
 	ts.mu.RLock() // Lock for loadBalance access
@@ -126,14 +145,9 @@ func (ts *TScheduler) ProbeLessLoadedNodes(amount int, systemNodes map[utils.Nod
 	}
 
 	var nodes []nodeLoad
-	maxNodeLoad, err := strconv.Atoi(os.Getenv("MAX_TASKS"))
-	if err != nil {
-		fmt.Printf("Invalid MAX_TASKS value: %v\n", err)
-		maxNodeLoad = ts.defaultMaxNodeLoad
-	}
 
 	for nodeId, load := range ts.loadBalance {
-		if load <= utils.Load(maxNodeLoad) {
+		if load <= utils.Load(ts.maxNodeTaskLoad) {
 			if _, exists := systemNodes[nodeId]; exists { // Ensure the node is still connected
 				nodes = append(nodes, nodeLoad{nodeId, load})
 			}
@@ -177,65 +191,65 @@ func (ts *TScheduler) asignTasks(tasks []task.Task, connections map[utils.NodeId
 	idx := 0 // Tracks the number of tasks assigned so far
 
 	// Retrieve the maximum allowed load per node from the environment or use a default
-	maxNodeLoad, err := strconv.Atoi(os.Getenv("MAX_TASKS"))
-	if err != nil {
-		maxNodeLoad = ts.defaultMaxNodeLoad
-	}
+	maxNodeLoad := ts.maxNodeTaskLoad // Use cached maxNodeLoad
+	// Step 1: Single pass to assign tasks and collect underloaded nodes
+	underloadedNodes := []utils.NodeId{} // Nodes with capacity for more tasks
+	for nodeId, conn := range connections {
+		if idx >= len(tasks) {
+			break // All tasks have been assigned
+		}
 
-	// Step 1: Attempt to assign tasks to available nodes within their load capacity
-	// Only nodes with load < maxNodeLoad are considered
-	if len(tasks) >= len(connections) { // More tasks than nodes
-		for nodeId, conn := range connections {
-			if idx >= len(tasks) {
-				break // All tasks have been assigned
-			}
+		// Check the current load of the node
+		load, found := ts.GetLoadBalance(nodeId)
+		if !found || load >= utils.Load(maxNodeLoad) {
+			fmt.Printf("Skipping over because overloaded: %v with load %v", found, load)
+			continue // Skip overloaded or unknown nodes
+		}
 
-			// Check the current load of the node
-			load, found := ts.GetLoadBalance(utils.NodeId(nodeId))
-			if found && load >= utils.Load(maxNodeLoad) {
-				continue // Skip nodes that are already at or above max load
-			}
+		// Assign the task to this node
+		task := tasks[idx]
+		content := fmt.Sprintf("Assigned task with id %v from process: %v", task.Id, task.IdProc)
+		msg := message.NewMessage(message.AsignTask, content, task, 0)
+		if err := message.SendMessage(*msg, conn); err != nil {
+			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
+			ts.AppendToTaskWaitlist(task.Id, task)
+			continue
+		}
 
-			// Create and send the task assignment message
-			content := fmt.Sprintf("Assigned task with id %v from process: %v", tasks[idx].Id, tasks[idx].IdProc)
-			msg := message.NewMessage(message.AsignTask, content, tasks[idx], 0)
-			if err := message.SendMessage(*msg, conn); err != nil {
-				// If sending fails, requeue the task for later assignment
-				ts.AppendToTaskQueue(tasks[idx].Id, tasks[idx])
-				continue
-			}
-			ts.AppendToTaskRegistry(nodeId, tasks[idx])
-			idx++ // Successfully assigned this task
+		ts.AppendToTaskRegistry(nodeId, task)
+		idx++ // Successfully assigned this task
+
+		// Track this node as underloaded for potential reassignment
+		if load+1 < utils.Load(maxNodeLoad) {
+			underloadedNodes = append(underloadedNodes, nodeId)
 		}
 	}
 
-	// Step 2: Distribute remaining tasks among the least-loaded nodes
-	// This block is entered only if there are pending tasks
-	if idx < len(tasks) {
-		// Identify nodes with the least load to handle remaining tasks
-		lessLoadedNodes := ts.ProbeLessLoadedNodes(len(tasks)-idx, connections)
-		for _, nodeId := range lessLoadedNodes {
-			if idx >= len(tasks) {
-				break // All tasks have been assigned
-			}
-
-			// Create and send the task assignment message
-			content := fmt.Sprintf("Assigned task with id %v from process: %v", tasks[idx].Id, tasks[idx].IdProc)
-			msg := message.NewMessage(message.AsignTask, content, tasks[idx], 0)
-			if err := message.SendMessage(*msg, connections[utils.NodeId(nodeId)]); err != nil {
-				// If sending fails, requeue the task for later assignment
-				ts.AppendToTaskQueue(tasks[idx].Id, tasks[idx])
-				continue
-			}
-			ts.AppendToTaskRegistry(nodeId, tasks[idx])
-			idx++ // Successfully assigned this task
+	// Step 2: Assign remaining tasks to underloaded nodes
+	for _, nodeId := range underloadedNodes {
+		if idx >= len(tasks) {
+			break // All tasks have been assigned
 		}
+
+		// Assign remaining tasks
+		task := tasks[idx]
+		conn := connections[nodeId]
+		content := fmt.Sprintf("Assigned task with id %v from process: %v", task.Id, task.IdProc)
+		msg := message.NewMessage(message.AsignTask, content, task, 0)
+		if err := message.SendMessage(*msg, conn); err != nil {
+			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
+			ts.AppendToTaskWaitlist(task.Id, task)
+			continue
+		}
+
+		ts.AppendToTaskRegistry(nodeId, task)
+		idx++
 	}
 
 	// Step 3: Handle tasks that could not be assigned
-	// Remaining tasks (if any) are appended to the task waitlist
 	if idx < len(tasks) {
 		ts.addMultipleToTaskWaitlist(tasks[idx:])
+		fmt.Printf("Could not assign %d tasks, added to waitlist\n", len(tasks)-idx)
 	}
 }
 

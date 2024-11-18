@@ -29,7 +29,7 @@ func NewNode(id int) (*Node, error) {
 
 	return &Node{
 		id:        id,
-		taskQueue: make([]task.Task, maxSize),
+		taskQueue: make([]task.Task, 0, maxSize),
 	}, nil
 }
 
@@ -141,13 +141,11 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 }
 
 func (n *Node) HandleNodeConnection() error {
-	var messageQueue [][]byte
 	go n.sendHeartBeat()
 
 	for {
-		rawMsg := make([]byte, 1024)
-		size, err := n.conn.Read(rawMsg)
-		messageQueue := append(messageQueue, rawMsg)
+		buff := make([]byte, 4096)
+		size, err := n.conn.Read(buff)
 		if err != nil {
 			if err.Error() == "EOF" {
 				fmt.Println("Conection with System port lost") //cuando se cierra el servidor aparece este mensaje
@@ -160,7 +158,7 @@ func (n *Node) HandleNodeConnection() error {
 				return fmt.Errorf("error handling connection up: %w", err)
 			}
 		}
-		go n.HandleReceivedData(messageQueue[len(messageQueue)-1][:size], size)
+		go n.HandleReceivedData(buff[:size], size)
 	}
 }
 

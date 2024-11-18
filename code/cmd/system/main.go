@@ -6,7 +6,6 @@ import (
 	"distributed-system/pkg/customerrors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,24 +43,10 @@ func main() {
 
 		switch input {
 		case "1":
-			fmt.Print("Input the Max Node Load for the system: ")
-			nodeLoadInput, err := reader.ReadString('\n')
-			if err != nil {
-				log.WithError(err).Error("Error reading Node Load input")
-				continue
-			}
-			nodeLoadInput = strings.TrimSpace(nodeLoadInput)
-			nodeLoad, err := strconv.Atoi(nodeLoadInput)
 
-			if err != nil || nodeLoad <= 0 {
-				log.Warn("Invalid input for Node Load")
-				fmt.Println("Please use positive numbers")
-				continue
-			}
-
-			sys := system.NewSystem(nodeLoad)
+			sys := system.NewSystem()
 			go sys.StartSystem()
-			log.WithField("Node Load", nodeLoad).Info("Starting system...")
+			log.WithField("System start", true).Info("Starting system...")
 			time.Sleep(18 * time.Second)
 
 			if err := sys.CreateNewProcess([]float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7}); err != nil {
