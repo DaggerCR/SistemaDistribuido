@@ -39,6 +39,7 @@ func (s *System) StartSystem() {
 	fmt.Println("System is starting...")
 	go s.OpenServer()
 	go s.StartHeartbeatChecker()
+	go s.WaitlistRetry()
 
 	select {} // Block forever
 }
@@ -298,7 +299,7 @@ func (s *System) AppendNode(nodeId utils.NodeId, conn net.Conn) {
 func (s *System) RemoveSystemNode(nodeId utils.NodeId) {
 	s.muConn.Lock()
 	defer s.muConn.Unlock()
-	fmt.Println("DELETING NODE FROM SYSTEM WITH ID: %v", nodeId)
+	fmt.Printf("DELETING NODE FROM SYSTEM WITH ID: %v", nodeId)
 	delete(s.systemNodes, nodeId)
 }
 
@@ -318,6 +319,15 @@ func (s *System) CreateNewProcess(entryArray []float64) error {
 		return fmt.Errorf("error in process creation: %v", err)
 	}
 	return nil
+}
+
+func (s *System) WaitlistRetry() {
+	for {
+		time.Sleep(1 * time.Millisecond)
+		s.muConn.Lock()
+		s.taskScheduler.AttemptReasign(s.systemNodes)
+		s.muConn.Unlock()
+	}
 }
 
 func (s *System) TaskScheduler() *tscheduler.TScheduler {

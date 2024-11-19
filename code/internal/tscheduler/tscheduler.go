@@ -26,7 +26,7 @@ type TScheduler struct {
 	mu                 sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
 }
 
-const DefaultMaxTasksPerNode = 10
+const DefaultMaxTasksPerNode = 3
 const DefaultMaxProcesses = 9
 
 // NewTScheduler initializes and returns a new TScheduler instance.
@@ -57,14 +57,14 @@ func (ts *TScheduler) TaskRegistry() map[utils.NodeId][]task.Task {
 }
 
 // TaskQueue returns the slice of tasks in the taskWaitlist.
-func (ts *TScheduler) TaskQueue() map[utils.TaskId]task.Task {
+func (ts *TScheduler) TaskWaitlist() map[utils.TaskId]task.Task {
 	return ts.taskWaitlist
 }
 
 // Setters
 
 // SetTaskQueue updates the taskWaitlist slice.
-func (ts *TScheduler) SetTaskQueue(tasks map[utils.TaskId]task.Task) {
+func (ts *TScheduler) SetTaskWaitlist(tasks map[utils.TaskId]task.Task) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.taskWaitlist = tasks
@@ -98,6 +98,7 @@ func (ts *TScheduler) GetLoadBalance(nodeId utils.NodeId) (utils.Load, bool) {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 	load, ok := ts.loadBalance[nodeId]
+	fmt.Println("LOAD FOR THIS MF IS: ", load)
 	return load, ok
 }
 
@@ -222,16 +223,16 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		// Check the current load of the node
 		load, found := ts.GetLoadBalance(nodeId)
 		if !found || load >= utils.Load(maxNodeLoad) {
-			fmt.Printf("Skipping over because found : %v or overload %v/%v", found, load, maxNodeLoad)
+			fmt.Printf("\n Skipping over because found : %v or overload %v/%v \n", found, load, maxNodeLoad)
 			continue // Skip overloaded or unknown nodes
 		}
 
 		// Assign the task to this node
 		task := tasks[idx]
-		content := fmt.Sprintf("Assigned task with id %v from process: %v to node: %v", task.Id, task.IdProc, nodeId)
+		content := fmt.Sprintf("\nAssigned task with id %v from process: %v to node: %v\n", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
 		if err := message.SendMessage(msg, conn); err != nil {
-			fmt.Printf("Error assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
+			fmt.Printf("\nError assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
 			ts.AppendToTaskWaitlist(task.Id, task)
 			continue
 		}
@@ -268,6 +269,18 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		ts.addMultipleToTaskWaitlist(tasks[idx:])
 		fmt.Printf("Could not assign %d tasks, added to waitlist\n", len(tasks)-idx)
 	}
+}
+
+func (ts *TScheduler) AttemptReasign(connections map[utils.NodeId]net.Conn) {
+	ts.mu.Lock()
+	currentTasksWaitlist := ts.TaskWaitlist()
+	var currentUnasignedTasks []task.Task
+	for _, task := range currentTasksWaitlist {
+		currentUnasignedTasks = append(currentUnasignedTasks, task)
+	}
+	ts.mu.Unlock()
+	ts.SetTaskWaitlist(make(map[utils.TaskId]task.Task))
+	ts.AsignTasks(currentUnasignedTasks, connections)
 }
 
 func (ts *TScheduler) addMultipleToTaskWaitlist(entries []task.Task) {

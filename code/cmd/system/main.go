@@ -6,6 +6,7 @@ import (
 	"distributed-system/pkg/customerrors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,8 @@ func main() {
 		fmt.Println("1. Start System")
 		fmt.Println("2. View System log")
 		fmt.Println("3. Create task simulated")
-		fmt.Println("4. Exit")
+		fmt.Println("4. Add nodes")
+		fmt.Println("5. Exit")
 		fmt.Print("Select an option: ")
 
 		input, err := reader.ReadString('\n')
@@ -102,8 +104,26 @@ func main() {
 			} else {
 				fmt.Println("\nNo system created yet")
 			}
-
 		case "4":
+			if systemUp {
+				input, err := reader.ReadString('\n')
+				if err != nil {
+					log.WithError(err).Error("Error reading user input")
+					continue
+				}
+				input = strings.TrimSpace(input)
+				numNodes, err := strconv.Atoi(input)
+				if err != nil {
+					log.WithError(err).Error("Error reading user input")
+					continue
+				}
+				log.WithField("Created nodes with quantity ", numNodes).Info("Starting nodes...")
+				sys.AddNodes(numNodes)
+				continue
+			} else {
+				fmt.Println("\nNo system created yet")
+			}
+		case "5":
 			log.Info("Exit system by user decision")
 			fmt.Println("\nExit System...")
 			return
