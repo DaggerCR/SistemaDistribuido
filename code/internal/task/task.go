@@ -1,6 +1,9 @@
 package task
 
-import "distributed-system/pkg/utils"
+import (
+	"distributed-system/pkg/utils"
+	"fmt"
+)
 
 type Task struct {
 	Id         utils.TaskId
@@ -18,9 +21,6 @@ func NewTask(id utils.TaskId, idProc utils.ProcId, chunk []float64) *Task {
 	}
 }
 
-func SafeTaskAccess(slice []Task, index int) (Task, bool) {
-	if index >= 0 && index < len(slice) {
-		return slice[index], true
-	}
-	return Task{}, false
+func (t *Task) Print() string {
+	return fmt.Sprintf("task id: %v,\t process id:%v,\t chunk: %v", t.Id, t.IdProc, t.Chunk)
 }

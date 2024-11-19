@@ -5,7 +5,6 @@ import (
 	"distributed-system/internal/task"
 	"distributed-system/pkg/customerrors"
 	"distributed-system/pkg/utils"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -61,36 +60,30 @@ func (n *Node) AppendTask(newTask task.Task) {
 	n.taskQueue = append(n.taskQueue, newTask)
 }
 
-func (n *Node) DeleteTask(id utils.TaskId) {
+func (n *Node) DeleteTassByIndex(idx int) (task.Task, bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if len(n.taskQueue) == 0 {
-		return
+		return *task.NewTask(-1, -1, []float64{}), false
 	}
-	newQueue := n.taskQueue[:0]
-	for _, v := range n.taskQueue {
-		if v.Id != id {
-			newQueue = append(newQueue, v)
-		}
+	if idx < 0 || idx >= len(n.taskQueue) {
+		return *task.NewTask(-1, -1, []float64{}), false
 	}
+	deletedTask := n.taskQueue[idx]
+	newQueue := append(n.taskQueue[:idx], n.taskQueue[idx+1:]...)
 	n.taskQueue = newQueue
+	return deletedTask, true
 }
 
-func (n *Node) PopTask(idx int) (task.Task, error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	deletedTask, isSafe := task.SafeTaskAccess(n.taskQueue, idx)
-	if !isSafe {
-		return task.Task{}, errors.New("no task found for pop action")
-	}
-	return deletedTask, nil
+func (n *Node) PopTask() (task.Task, bool) {
+	return n.DeleteTassByIndex(0)
 }
 
-func (n *Node) calcSum(idx int) float64 {
+func (n *Node) CalcSum(task task.Task) float64 {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	var sum float64
-	chunk := n.taskQueue[idx].Chunk
+	chunk := task.Chunk
 	for _, val := range chunk {
 		sum += val
 	}
@@ -122,7 +115,6 @@ func Panic(protocol string, address string, id int, errorS error) {
 }
 
 func SetUpConnection(protocol string, address string, id int) (*Node, error) {
-	fmt.Printf("Conexion de tipo: %v, en el puerto %v\n", protocol, address)
 	nnode, err := NewNode(id)
 	if err != nil {
 		Panic(protocol, address, id, err)
@@ -144,6 +136,7 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 
 func (n *Node) HandleNodeConnection() error {
 	go n.sendHeartBeat()
+	go n.ExecuteTask()
 	for {
 		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
@@ -181,7 +174,7 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 		errorMsg := message.NewMessageNoTask(message.ActionFailure, "Invalid message revieved", n.id)
 		message.SendMessage(errorMsg, n.conn)
 	}
-	fmt.Printf("Me, node %v, recieved content: %v\n", n.id, msg.Content)
+	//fmt.Printf("Me, node %v, recieved content: %v\n", n.id, msg.Content)
 	switch msg.Action {
 	case message.AsignTask:
 		n.ReceiveAsignTask(msg.Task, utils.NodeId(msg.Sender))
@@ -195,10 +188,45 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 	}
 }
 
+func (n *Node) ExecuteTask() {
+	for {
+		time.Sleep(1 * time.Millisecond)
+		taskToExecute, ok := n.PopTask()
+		isFinished := taskToExecute.IsFinished
+		if ok && !isFinished {
+			res := n.CalcSum(taskToExecute)
+			fmt.Println("")
+			fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+			fmt.Printf("\n [ %v executed with result: %v ]\n", taskToExecute.Print(), res)
+			fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+			fmt.Println("")
+			resString := strconv.FormatFloat(res, 'f', -1, 64)
+			taskToExecute.IsFinished = true
+			msg := message.NewMessage(message.ReturnedRes, resString, taskToExecute, n.id)
+			message.SendMessage(msg, n.Conn())
+		}
+	}
+}
+
 func (n *Node) ReceiveAsignTask(task task.Task, nodeId utils.NodeId) {
 	n.AppendTask(task)
 	content := fmt.Sprintf("Task asigned: %v\n", task.Id)
-	fmt.Println("Taks was asigned; overview of tasks: ", task)
+	fmt.Printf("\nTaks was asigned; overview of tasks: %v \n", task.Print())
+	n.Print()
 	nodeUpMsg := message.NewMessage(message.ActionSuccess, content, task, n.id)
 	message.SendMessage(nodeUpMsg, n.conn)
+}
+
+func (n *Node) Print() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	fmt.Printf("\n\n")
+	fmt.Printf("====================================== Node with id %v ======================================", n.id)
+	fmt.Println("")
+	for idx, task := range n.taskQueue {
+		fmt.Println("---------------------------------------------------------------------------------------------")
+		fmt.Printf("%v:\t%v\n", idx, task.Print())
+	}
+	fmt.Println("---------------------------------------------------------------------------------------------")
+	fmt.Println("\n")
 }

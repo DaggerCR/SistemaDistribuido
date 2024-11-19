@@ -57,8 +57,6 @@ func ReadEntry() string {
 
 func SliceUpArray(arrayToSum []float64, chunkSize int) ([][]float64, error) {
 	arraySize := len(arrayToSum)
-	msg := fmt.Sprintf("Slice up array of chunk size %v with lenght: %v", chunkSize, arraySize)
-	fmt.Println(msg)
 	if chunkSize <= 0 {
 		return nil, errors.New("chunk size must be greater than 0")
 	} else if chunkSize > arraySize {

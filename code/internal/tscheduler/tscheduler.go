@@ -16,36 +16,43 @@ import (
 )
 
 type TScheduler struct {
-	taskRegistry    map[utils.NodeId]task.Task //data redundancy (to manage task reasignment )
-	taskWaitlist    map[utils.TaskId]task.Task //queue for unasigned task (aka task that weren't able to fit due to load balancing or max load of all nodes reached)
-	processes       map[utils.ProcId]*process.Process
-	loadBalance     map[utils.NodeId]utils.Load // Regular map for load balancing
-	maxNodeTaskLoad int
-	processMu       sync.Mutex   // Protects processes slice
-	mu              sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
+	taskRegistry       map[utils.NodeId][]task.Task //data redundancy (to manage task reasignment )
+	taskWaitlist       map[utils.TaskId]task.Task   //queue for unasigned task (aka task that weren't able to fit due to load balancing or max load of all nodes reached)
+	processes          map[utils.ProcId]*process.Process
+	loadBalance        map[utils.NodeId]utils.Load // Regular map for load balancing
+	maxNodeTaskLoad    int
+	maxSystemProcesses int
+	processMu          sync.Mutex   // Protects processes slice
+	mu                 sync.RWMutex // Protects loadBalance, systemNodes, and healthRegistry
 }
 
 const DefaultMaxTasksPerNode = 10
+const DefaultMaxProcesses = 9
 
 // NewTScheduler initializes and returns a new TScheduler instance.
 func NewTScheduler() *TScheduler {
 	maxNodeTaskLoadEnv := DefaultMaxTasksPerNode
-	if envVal, err := strconv.Atoi(os.Getenv("MAX_TASKS")); err == nil {
-		maxNodeTaskLoadEnv = envVal
+	if envValLoad, err := strconv.Atoi(os.Getenv("MAX_TASKS")); err == nil {
+		maxNodeTaskLoadEnv = envValLoad
+	}
+	maxSystemProcessesEnv := DefaultMaxProcesses
+	if envValTask, err := strconv.Atoi(os.Getenv("MAX_PROCESSES")); err == nil {
+		maxSystemProcessesEnv = envValTask
 	}
 	return &TScheduler{
-		loadBalance:     make(map[utils.NodeId]utils.Load),
-		taskRegistry:    make(map[utils.NodeId]task.Task),
-		taskWaitlist:    make(map[utils.TaskId]task.Task),
-		processes:       make(map[utils.ProcId]*process.Process),
-		maxNodeTaskLoad: maxNodeTaskLoadEnv,
+		loadBalance:        make(map[utils.NodeId]utils.Load),
+		taskRegistry:       make(map[utils.NodeId][]task.Task),
+		taskWaitlist:       make(map[utils.TaskId]task.Task),
+		processes:          make(map[utils.ProcId]*process.Process),
+		maxNodeTaskLoad:    maxNodeTaskLoadEnv,
+		maxSystemProcesses: maxSystemProcessesEnv,
 	}
 }
 
 // Getters
 
 // TaskRegistry returns the slice of tasks in the taskRegistry.
-func (ts *TScheduler) TaskRegistry() map[utils.NodeId]task.Task {
+func (ts *TScheduler) TaskRegistry() map[utils.NodeId][]task.Task {
 	return ts.taskRegistry
 }
 
@@ -69,7 +76,7 @@ func (ts *TScheduler) SetTaskQueue(tasks map[utils.TaskId]task.Task) {
 func (ts *TScheduler) AppendToTaskRegistry(nodeId utils.NodeId, task task.Task) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	ts.taskRegistry[nodeId] = task
+	ts.taskRegistry[nodeId] = append(ts.taskRegistry[nodeId], task)
 }
 
 // AppendToTaskQueue adds a single task to the taskWaitlist slice.
@@ -134,6 +141,19 @@ func (ts *TScheduler) RemoveFromTaskWaitlist(taskId utils.TaskId) {
 	delete(ts.taskWaitlist, taskId)
 }
 
+func (ts *TScheduler) GetProcess(procId utils.ProcId) (*process.Process, bool) {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	process, exists := ts.processes[procId]
+	return process, exists
+}
+
+func (ts *TScheduler) RemoveProcess(procId utils.ProcId) {
+	ts.processMu.Lock()
+	defer ts.processMu.Unlock()
+	delete(ts.processes, procId)
+}
+
 // ProbeLessLoadedNodes retrieves nodes with the least load while considering node connections.
 func (ts *TScheduler) ProbeLessLoadedNodes(amount int, systemNodes map[utils.NodeId]net.Conn) []utils.NodeId {
 	ts.mu.RLock() // Lock for loadBalance access
@@ -180,7 +200,7 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc uti
 		return nil, 0, fmt.Errorf("could not create task for procedure in this moment: %w", err)
 	}
 	for idx, chunk := range chunks {
-		taskId := int(idProc) + idx
+		taskId := int(idProc)*1000 + idx
 		newTask := task.NewTask(utils.TaskId(taskId), idProc, chunk)
 		tasks = append(tasks, *newTask)
 	}
@@ -202,7 +222,7 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		// Check the current load of the node
 		load, found := ts.GetLoadBalance(nodeId)
 		if !found || load >= utils.Load(maxNodeLoad) {
-			fmt.Printf("Skipping over because overloaded: %v with load %v", found, load)
+			fmt.Printf("Skipping over because found : %v or overload %v/%v", found, load, maxNodeLoad)
 			continue // Skip overloaded or unknown nodes
 		}
 
@@ -215,16 +235,13 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 			ts.AppendToTaskWaitlist(task.Id, task)
 			continue
 		}
-
 		ts.AppendToTaskRegistry(nodeId, task)
 		idx++ // Successfully assigned this task
-
 		// Track this node as underloaded for potential reassignment
 		if load+1 < utils.Load(maxNodeLoad) {
 			underloadedNodes = append(underloadedNodes, nodeId)
 		}
 	}
-
 	// Step 2: Assign remaining tasks to underloaded nodes
 	for _, nodeId := range underloadedNodes {
 		if idx >= len(tasks) {
@@ -285,19 +302,119 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 	newProcessId := ts.GetRandomIdNotInProcesses()
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
+	if len(ts.processes) >= ts.maxNodeTaskLoad {
+		return 0, errors.New("system is at maximum capacity, try later")
+	}
 	ts.processes[newProcessId] = process.NewProcess(newProcessId)
 	tasks, numTasks, err := ts.CreateTasks(entryArray, numNodes, newProcessId)
 	if err != nil {
 		initialErrorMsg := fmt.Sprintf("error creating tasks for process with id: %v ", newProcessId)
 		return 0, fmt.Errorf(initialErrorMsg+": %v", err)
 	}
-	fmt.Printf("\n\n Task created were %v: \n %v \n\n", numTasks, tasks)
+	ts.processes[newProcessId].AppendDependencies(tasks...)
 	ts.AsignTasks(tasks, connections)
+
+	fmt.Printf("\nProcess created with id %v", newProcessId)
+
 	return numTasks, nil
 }
 
-func (ts *TScheduler) UpdateProcessRes(idProc utils.ProcId, res float64) {
+// returns true if process is finished
+func (ts *TScheduler) UpdateProcessRes(idProc utils.ProcId, res float64) bool {
+	procToUpdate, ok := ts.GetProcess(idProc)
+	if !ok {
+		fmt.Printf("\nRecieved update for non existing procedure %v, canceling operation...\n", idProc)
+		return false
+	}
+	procToUpdate.AugmentRes(res)
+	fmt.Printf("\nResult for process with id: %v was augmneted by :%v \n", idProc, res)
+	return true
+}
+
+func (ts *TScheduler) UpdateRedundacyTaskStatus(taskId utils.TaskId, nodeId utils.NodeId) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	tasks, ok := ts.taskRegistry[nodeId]
+	if ok {
+		for idx, task := range tasks {
+			if task.Id == taskId {
+				task.IsFinished = true
+				ts.taskRegistry[nodeId][idx] = task
+				break
+			}
+		}
+
+		return true
+	}
+	return false
+}
+
+func (ts *TScheduler) UpdateProcessTaskStatus(taskId utils.TaskId, procId utils.ProcId) bool {
+	//fmt.Println("TEST2.X")
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
-	ts.processes[idProc].AugmentRes(res)
+	//fmt.Println("TEST2.2")
+	processModified, ok := ts.processes[procId]
+	if ok {
+		//fmt.Println("TEST2.3")
+		processModified.UpdateTaskStatus(taskId, true)
+		//fmt.Println("TEST2.4")
+		ts.processes[procId] = processModified
+		return true
+	}
+	return false
+}
+
+func (ts *TScheduler) HandleProcessUpdate(task task.Task, nodeId utils.NodeId, res float64) bool {
+	if ts.UpdateProcessRes(task.IdProc, res) {
+		//fmt.Println("TEST1")
+		if !ts.DeleteRedundacyTaskStatus(task.Id, nodeId) {
+			fmt.Println("Couldnt find task with nodeId: ", nodeId)
+			return false
+		}
+		//fmt.Println("TEST2")
+		if !ts.UpdateProcessTaskStatus(task.Id, task.IdProc) {
+			fmt.Println("Couldnt find process with task: ", task.Id)
+			return false
+		}
+		//fmt.Println("TEST2.5")
+		currentLoad, ok := ts.GetLoadBalance(nodeId)
+		//fmt.Println("TEST3")
+		if !ok {
+			fmt.Println("Corrupt node")
+			return false
+		}
+		currentLoad--
+		if currentLoad < 0 {
+			fmt.Println("Error load is negative?")
+		}
+		//fmt.Println("TEST4")
+		ts.UpdateLoadBalance(nodeId, currentLoad)
+		process, ok := ts.GetProcess(task.IdProc)
+		if !ok {
+			fmt.Println("Error could not find process after all checks?")
+		}
+		//fmt.Println("TEST5")
+		if process.CheckFinished() {
+			ts.RemoveProcess(task.IdProc)
+		}
+		//fmt.Println("TEST6")
+		return true
+	}
+	return false
+}
+
+func (ts *TScheduler) DeleteRedundacyTaskStatus(taskId utils.TaskId, nodeId utils.NodeId) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	tasksToCheck, ok := ts.taskRegistry[nodeId]
+	if ok {
+		for idx, task := range tasksToCheck {
+			if task.Id == taskId {
+				ts.taskRegistry[nodeId] = append(tasksToCheck[:idx], tasksToCheck[idx+1:]...)
+				return true
+			}
+		}
+	}
+	return false
 }

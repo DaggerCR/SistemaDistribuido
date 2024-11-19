@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -152,9 +151,11 @@ func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
 		fmt.Println("Erroneous message received, ignoring...", err)
 		return
 	}
-	if msg.Action != message.Heartbeat {
-		fmt.Printf("Master received message with an ID of: %v, content: %v\n", msg.Sender, msg.Content)
-	}
+	/*
+		if msg.Action != message.Heartbeat {
+			fmt.Printf("\n Master received message with an ID of: %v, content: %v\n\n", msg.Sender, msg.Content)
+		}
+	*/
 	switch msg.Action {
 	case message.Heartbeat:
 		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
@@ -167,6 +168,12 @@ func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
 		} else {
 			s.ReceiveSuccess(utils.NodeId(msg.Sender), buffer)
 		}
+	case message.ReturnedRes:
+		{
+
+			//content only contains the float64 result parsed as a string
+			s.ReceiveReturnedRes(msg.Task, utils.NodeId(msg.Sender), msg.Content, conn)
+		}
 	default:
 		fmt.Println("Unknown action received.", msg.Content)
 	}
@@ -177,7 +184,7 @@ func (s *System) ReceiveHeartbeat(nodeId utils.NodeId) {
 	s.UpdateHealthRegistry(nodeId, 0)
 }
 
-// ReceiveNodeUp handlefs a node coming online.
+// ReceiveNodeUp handles a node coming online.
 func (s *System) ReceiveNodeUp(nodeId utils.NodeId, conn net.Conn) {
 	fmt.Printf("Node %d is online.\n", nodeId)
 	s.AppendNode(nodeId, conn)
@@ -195,38 +202,38 @@ func (s *System) ReceiveSuccess(nodeId utils.NodeId, buffer []byte, tasks ...tas
 	}
 }
 
-func (s *System) ParseResult(buffer []byte) float64 {
+func (s *System) ParseResult(resString string) (float64, error) {
 	// Split the string to isolate the number
-	data := string(buffer)
-	parts := strings.Split(data, ":")
-	if len(parts) != 2 {
-		fmt.Println("Invalid format")
-		return 0.0
-	}
-	// Trim spaces and parse the number
-	numberStr := strings.TrimSpace(parts[1])
-	number, err := strconv.ParseFloat(numberStr, 64)
+	number, err := strconv.ParseFloat(resString, 64)
 	if err != nil {
-		fmt.Println("Error parsing float:", err)
-		return 0.0
+		return 0.0, fmt.Errorf("error parsing float: %v", err)
 	}
-	return number
+	return number, nil
 }
 
 func (s *System) ReceiveTaskSuccess(nodeId utils.NodeId, buffer []byte, task task.Task) {
 	if !task.IsFinished {
 		currentLoad, ok := s.taskScheduler.GetLoadBalance(nodeId)
 		if !ok {
-			s.RemoveNodeSafely() //TODO
+			s.RemoveSystemNode(nodeId) //TODO
 		}
 		currentLoad++
 		s.taskScheduler.UpdateLoadBalance(nodeId, currentLoad)
-	} else {
-		res := s.ParseResult(buffer)
-		s.taskScheduler.UpdateProcessRes(task.IdProc, res)
 	}
 }
 
+func (s *System) ReceiveReturnedRes(task task.Task, nodeId utils.NodeId, resString string, conn net.Conn) {
+	res, err := s.ParseResult(resString)
+	if err != nil {
+		fmt.Println("Entered receive result, but there was an error")
+		task.IsFinished = false
+		msgFailure := message.NewMessage(message.ActionFailure, fmt.Sprintf("Failed to update procedure: %v: %v", task.IdProc, err), task, 0)
+		message.SendMessage(msgFailure, conn)
+	}
+	s.taskScheduler.HandleProcessUpdate(task, nodeId, res)
+}
+
+/*
 func (s *System) ReceiveFailure(nodeId utils.NodeId, conn net.Conn, tasks ...task.Task) {
 	if len(tasks) > 0 {
 		s.ReceiveTaskFailure(nodeId, conn, tasks[0])
@@ -241,10 +248,7 @@ func (s *System) ReceiveTaskFailure(nodeId utils.NodeId, conn net.Conn, task tas
 		fmt.Println("Receive task failure not implemented YET")
 	}
 }
-
-func (s *System) RemoveNodeSafely() {
-	//removes node from all instances where it is registered, additionally calls the taskscheduler implementation for task reasignment
-}
+*/
 
 // StartHeartbeatChecker periodically checks node health.
 func (s *System) StartHeartbeatChecker() {
@@ -294,6 +298,7 @@ func (s *System) AppendNode(nodeId utils.NodeId, conn net.Conn) {
 func (s *System) RemoveSystemNode(nodeId utils.NodeId) {
 	s.muConn.Lock()
 	defer s.muConn.Unlock()
+	fmt.Println("DELETING NODE FROM SYSTEM WITH ID: %v", nodeId)
 	delete(s.systemNodes, nodeId)
 }
 
