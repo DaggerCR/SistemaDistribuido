@@ -61,7 +61,7 @@ func (p *Process) CheckFinished() bool {
 			return false
 		}
 	}
-	fmt.Printf("\n >>>> Process with id: %v has finished with final result: %v\n", p.id, p.res)
+	fmt.Printf("\n\n\n\n\n  [INFO]Process with id: %v has finished with final result: %v \n\n\n\n\n", p.id, p.res)
 	return true
 }
 

@@ -144,3 +144,39 @@ time="2024-11-20T13:51:31-06:00" level=info msg="Starting nodes..." Created node
 time="2024-11-20T14:58:50-06:00" level=info msg="Starting system..." System start=true
 time="2024-11-20T14:58:55-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
 time="2024-11-20T16:30:05-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T16:37:44-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:37:50-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T16:40:09-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T16:44:17-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:44:52-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:46:33-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T16:46:37-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:49:23-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:51:37-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T16:55:03-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:03:25-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:05:01-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:05:07-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:05:58-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:06:02-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:09:25-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:09:28-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:11:47-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:12:21-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:13:41-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:13:48-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:17:09-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:17:15-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:21:38-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:21:43-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:23:36-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:31:49-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:35:56-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:36:03-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:43:13-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:43:19-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:46:01-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:46:07-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:50:54-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T17:51:08-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T17:52:18-06:00" level=info msg="Exit system by user decision"

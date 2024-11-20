@@ -156,7 +156,7 @@ func (n *Node) HandleNodeConnection() error {
 }
 
 func (n *Node) sendHeartBeat() {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for range ticker.C {
 		msg := message.NewMessageNoTask(message.Heartbeat, "Heartbeat", n.id)
@@ -190,7 +190,7 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 
 func (n *Node) ExecuteTask() {
 	for {
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 		taskToExecute, ok := n.PopTask()
 		isFinished := taskToExecute.IsFinished
 		if ok && !isFinished {

@@ -162,8 +162,8 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc uti
 	if len(entryArray) == 0 {
 		return []task.Task{}, 0, nil // No entries to process
 	}
-	chunkLen := (len(entryArray) + numNodes - 1) / numNodes
-
+	//chunkLen := (len(entryArray) + numNodes - 1) / numNodes
+	chunkLen := 2
 	var tasks []task.Task
 	chunks, err := utils.SliceUpArray(entryArray, chunkLen)
 
@@ -195,8 +195,13 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 		return
 	}
 
-	// Step 2: Assign tasks to nodes
-	unassignedTasks := ts.assignTasksToNodes(tasks, eligibleNodes, maxNodeLoad)
+	// Step 2: Distribute tasks evenly across eligible nodes
+	nodeIds := make([]utils.NodeId, 0, len(eligibleNodes))
+	for nodeId := range eligibleNodes {
+		nodeIds = append(nodeIds, nodeId)
+	}
+
+	unassignedTasks := ts.distributeTasksEvenly(tasks, nodeIds, eligibleNodes, maxNodeLoad)
 
 	// Step 3: Handle unassigned tasks
 	if len(unassignedTasks) > 0 {
@@ -235,54 +240,38 @@ func (ts *TScheduler) getEligibleNodes(connections map[utils.NodeId]net.Conn, ma
 	return eligibleNodes
 }
 
-func (ts *TScheduler) assignTasksToNodes(tasks []task.Task, eligibleNodes map[utils.NodeId]net.Conn, maxNodeLoad int) []task.Task {
-	unassignedTasks := make([]task.Task, 0) // Store tasks that couldn't be assigned
-	taskChan := make(chan task.Task, len(tasks))
-	for _, task := range tasks {
-		taskChan <- task
-	}
-	close(taskChan)
+func (ts *TScheduler) distributeTasksEvenly(tasks []task.Task, nodeIds []utils.NodeId, eligibleNodes map[utils.NodeId]net.Conn, maxNodeLoad int) []task.Task {
+	var unassignedTasks []task.Task
+	nodeCount := len(nodeIds)
 
-	var mu sync.Mutex
-	wg := sync.WaitGroup{}
+	for i, task := range tasks {
+		nodeId := nodeIds[i%nodeCount] // Round-robin assignment
+		conn := eligibleNodes[nodeId]
 
-	for nodeId, conn := range eligibleNodes {
-		wg.Add(1)
-		go func(nodeId utils.NodeId, conn net.Conn) {
-			defer wg.Done()
-			for task := range taskChan {
-				load, ok := ts.GetLoadBalance(nodeId)
+		load, ok := ts.GetLoadBalance(nodeId)
+		if !ok || load >= utils.Load(maxNodeLoad) {
+			fmt.Printf("[DEBUG] Node %v is overloaded (%v/%v). Adding task %v to waitlist.\n", nodeId, load, maxNodeLoad, task.Id)
+			unassignedTasks = append(unassignedTasks, task)
+			continue
+		}
 
-				if !ok || load >= utils.Load(maxNodeLoad) {
-					fmt.Printf("[DEBUG] Node %v is overloaded (%v/%v). Skipping.\n", nodeId, load, maxNodeLoad)
-					mu.Lock()
-					unassignedTasks = append(unassignedTasks, task)
-					mu.Unlock()
-					continue
-				}
+		// Send the task to the node
+		content := fmt.Sprintf("[DEBUG] Assigning task %v (Process: %v) to node %v.", task.Id, task.IdProc, nodeId)
+		fmt.Println(content)
+		msg := message.NewMessage(message.AsignTask, content, task, 0)
 
-				// Send the task to the node
-				content := fmt.Sprintf("[DEBUG] Assigning task %v (Process: %v) to node %v.", task.Id, task.IdProc, nodeId)
-				fmt.Println(content)
-				msg := message.NewMessage(message.AsignTask, content, task, 0)
+		if err := message.SendMessage(msg, conn); err != nil {
+			fmt.Printf("[ERROR] Failed to send task %v to node %v: %v\n", task.Id, nodeId, err)
+			unassignedTasks = append(unassignedTasks, task)
+			continue
+		}
 
-				if err := message.SendMessage(msg, conn); err != nil {
-					fmt.Printf("[ERROR] Failed to send task %v to node %v: %v\n", task.Id, nodeId, err)
-					mu.Lock()
-					unassignedTasks = append(unassignedTasks, task)
-					mu.Unlock()
-					continue
-				}
-
-				// Task successfully sent, update the load
-				ts.AppendToTaskRegistry(nodeId, task)
-				ts.IncrementLoadBalance(nodeId)
-				fmt.Printf("[DEBUG] Task %v assigned to node %v. Load: %v/%v.\n", task.Id, nodeId, load+1, maxNodeLoad)
-			}
-		}(nodeId, conn)
+		// Task successfully sent, update the load and registry
+		ts.AppendToTaskRegistry(nodeId, task)
+		ts.IncrementLoadBalance(nodeId)
+		fmt.Printf("[DEBUG] Task %v assigned to node %v. Load: %v/%v.\n", task.Id, nodeId, load+1, maxNodeLoad)
 	}
 
-	wg.Wait()
 	return unassignedTasks
 }
 
@@ -294,7 +283,7 @@ func (ts *TScheduler) AttemptReasign(connections map[utils.NodeId]net.Conn) {
 		currentUnasignedTasks = append(currentUnasignedTasks, task)
 	}
 	ts.mu.Unlock()
-	//ts.SetTaskWaitlist(make(map[utils.TaskId]task.Task))
+	ts.SetTaskWaitlist(make(map[utils.TaskId]task.Task))
 	ts.AsignTasks(currentUnasignedTasks, connections)
 }
 
@@ -346,12 +335,15 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 
 // returns true if process is finished
 func (ts *TScheduler) UpdateProcessRes(idProc utils.ProcId, res float64) bool {
-	procToUpdate, ok := ts.GetProcess(idProc)
+	ts.processMu.Lock()
+	defer ts.processMu.Unlock()
+	procToUpdate, ok := ts.processes[idProc]
 	if !ok {
 		fmt.Printf("[WARNING] Recieved update for non existing procedure %v, canceling operation...\n", idProc)
 		return false
 	}
 	procToUpdate.AugmentRes(res)
+
 	fmt.Printf("[DEBUG] Result for process with id: %v was augmneted by :%v \n", idProc, res)
 	return true
 }
@@ -400,27 +392,16 @@ func (ts *TScheduler) HandleProcessUpdate(task task.Task, nodeId utils.NodeId, r
 			fmt.Printf("[WARNING] Couldnt find process  %v, with task: %v \n", task.IdProc, task.Id)
 			return false
 		}
-		currentLoad, ok := ts.GetLoadBalance(nodeId)
-		if !ok {
-			fmt.Printf("[WARNING] Corrupt node %v with no balanlce\n", nodeId)
-			//add logic to delete node
-			return false
-		}
-		currentLoad--
-		if currentLoad < 0 {
-			fmt.Printf("[WARNING] Load for node is negative is negative?")
-		}
-		//fmt.Println("TEST4")
-		ts.UpdateLoadBalance(nodeId, currentLoad)
-		process, ok := ts.GetProcess(task.IdProc)
+		ts.DecrementLoadBalance(nodeId)
+		ts.processMu.Lock()
+		process, ok := ts.processes[task.IdProc]
 		if !ok {
 			fmt.Println("Error could not find process after all checks?")
 		}
-		//fmt.Println("TEST5")
 		if process.CheckFinished() {
-			ts.RemoveProcess(task.IdProc)
+			delete(ts.processes, task.IdProc)
 		}
-		//fmt.Println("TEST6")
+		ts.processMu.Unlock()
 		return true
 	}
 	return false
@@ -444,18 +425,32 @@ func (ts *TScheduler) DeleteRedundacyTaskStatus(taskId utils.TaskId, nodeId util
 func (ts *TScheduler) IncrementLoadBalance(nodeId utils.NodeId) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	_, ok := ts.loadBalance[nodeId]
+
+	// Check if the node exists in the load balance map
+	currentLoad, ok := ts.loadBalance[nodeId]
 	if ok {
 		ts.loadBalance[nodeId]++
+		fmt.Printf("[DEBUG] Incremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad+1)
+	} else {
+		fmt.Printf("[WARNING] Tried to increment load for unknown node %v. Operation skipped.\n", nodeId)
 	}
 }
 
 func (ts *TScheduler) DecrementLoadBalance(nodeId utils.NodeId) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	load, ok := ts.loadBalance[nodeId]
-	if ok && load >= 0 {
-		ts.loadBalance[nodeId]--
+
+	// Check if the node exists in the load balance map
+	currentLoad, ok := ts.loadBalance[nodeId]
+	if ok {
+		if currentLoad > 0 {
+			ts.loadBalance[nodeId]--
+			fmt.Printf("[DEBUG] Decremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad-1)
+		} else {
+			fmt.Printf("[WARNING] Tried to decrement load for node %v, but load is already 0. Operation skipped.\n", nodeId)
+		}
+	} else {
+		fmt.Printf("[ERROR] Tried to decrement load for unknown node %v. Operation skipped.\n", nodeId)
 	}
 }
 

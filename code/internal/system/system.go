@@ -30,7 +30,6 @@ func NewSystem() *System {
 	return &System{
 		systemNodes:    make(map[utils.NodeId]net.Conn),
 		healthRegistry: make(map[utils.NodeId]utils.AccumulatedChecks),
-		taskScheduler:  *tscheduler.NewTScheduler(),
 	}
 }
 
@@ -39,7 +38,7 @@ func (s *System) StartSystem() {
 	fmt.Println("System is starting...")
 	go s.OpenServer()
 	go s.StartHeartbeatChecker()
-	//go s.WaitlistRetry()
+	go s.WaitlistRetry()
 
 	select {} // Block forever
 }
@@ -50,12 +49,12 @@ func (s *System) OpenServer() {
 		customerrors.HandleError(err)
 		os.Exit(1)
 	}
+	s.taskScheduler = *tscheduler.NewTScheduler()
 	protocol := os.Getenv("PROTOCOL")
 	port := os.Getenv("PORT")
 	host := os.Getenv("HOST")
 
 	address := fmt.Sprintf("%s:%s", host, port)
-	fmt.Printf("Conexion de tipo %v, en el puerto %v\n", protocol, address)
 	listener, err := net.Listen(protocol, address)
 
 	if err != nil {
@@ -64,8 +63,7 @@ func (s *System) OpenServer() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("System started on port %v\n", port)
-
+	fmt.Printf("[INFO] Cluster started at port %v\n", address)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -174,9 +172,8 @@ func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
 		}
 	case message.ReturnedRes:
 		{
-
 			//content only contains the float64 result parsed as a string
-			//s.ReceiveReturnedRes(msg.Task, utils.NodeId(msg.Sender), msg.Content, conn)
+			s.ReceiveReturnedRes(msg.Task, utils.NodeId(msg.Sender), msg.Content, conn)
 		}
 	default:
 		fmt.Println("Unknown action received.", msg.Content)
@@ -224,7 +221,6 @@ func (s *System) ReceiveTaskSuccess(nodeId utils.NodeId, buffer []byte, task tas
 func (s *System) ReceiveReturnedRes(task task.Task, nodeId utils.NodeId, resString string, conn net.Conn) {
 	res, err := s.ParseResult(resString)
 	if err != nil {
-		fmt.Println("Entered receive result, but there was an error")
 		task.IsFinished = false
 		msgFailure := message.NewMessage(message.ActionFailure, fmt.Sprintf("Failed to update procedure: %v: %v", task.IdProc, err), task, 0)
 		message.SendMessage(msgFailure, conn)
@@ -251,7 +247,7 @@ func (s *System) ReceiveTaskFailure(nodeId utils.NodeId, conn net.Conn, task tas
 
 // StartHeartbeatChecker periodically checks node health.
 func (s *System) StartHeartbeatChecker() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -270,7 +266,9 @@ func (s *System) CheckHeartbeat() {
 		s.healthRegistry[nodeId] = newChecks
 
 		if newChecks >= 3 {
-			fmt.Printf("Node %d is unresponsive. Reassigning tasks and removing from system.\n", nodeId)
+			fmt.Printf("\n\n\n\n")
+			fmt.Printf("[WARNING] Node %d is unresponsive. Reassigning tasks and removing from system.\n", nodeId)
+			fmt.Printf("\n\n\n\n")
 			s.taskScheduler.ReassignTasksForNode(nodeId)
 			delete(s.healthRegistry, nodeId)
 			delete(s.systemNodes, nodeId)
@@ -317,7 +315,7 @@ func (s *System) CreateNewProcess(entryArray []float64) {
 
 func (s *System) WaitlistRetry() {
 	for {
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		s.muConn.Lock()
 		s.taskScheduler.AttemptReasign(s.systemNodes)
 		s.muConn.Unlock()
