@@ -526,3 +526,102 @@ time="2024-11-19T02:43:36-06:00" level=info msg="Adress provided by user" Adress
 time="2024-11-19T02:43:36-06:00" level=info msg="ID selected by user" Protocol=8687
 time="2024-11-19T02:43:36-06:00" level=info msg="Adress provided by user" Adress=4186
 time="2024-11-19T02:43:36-06:00" level=info msg="ID selected by user" Protocol=4186
+time="2024-11-20T10:42:16-06:00" level=info msg="ID selected by user" Node ID=1
+time="2024-11-20T10:42:16-06:00" level=info msg="Adress provided by user" Adress=1
+time="2024-11-20T10:42:16-06:00" level=info msg="ID selected by user" Protocol=1
+time="2024-11-20T10:57:45-06:00" level=info msg="ID selected by user" Node ID=1
+time="2024-11-20T10:57:45-06:00" level=info msg="Adress provided by user" Adress=1
+time="2024-11-20T10:57:45-06:00" level=info msg="ID selected by user" Protocol=1
+time="2024-11-20T10:58:00-06:00" level=info msg="ID selected by user" Node ID=2
+time="2024-11-20T10:58:00-06:00" level=info msg="Adress provided by user" Adress=2
+time="2024-11-20T10:58:00-06:00" level=info msg="ID selected by user" Protocol=2
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Node ID=9277
+time="2024-11-20T11:08:41-06:00" level=info msg="Adress provided by user" Adress=9277
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Protocol=9277
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Node ID=7053
+time="2024-11-20T11:08:41-06:00" level=info msg="Adress provided by user" Adress=7053
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Protocol=7053
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Node ID=5885
+time="2024-11-20T11:08:41-06:00" level=info msg="Adress provided by user" Adress=5885
+time="2024-11-20T11:08:41-06:00" level=info msg="ID selected by user" Protocol=5885
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Node ID=9246
+time="2024-11-20T11:16:51-06:00" level=info msg="Adress provided by user" Adress=9246
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Protocol=9246
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Node ID=2133
+time="2024-11-20T11:16:51-06:00" level=info msg="Adress provided by user" Adress=2133
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Protocol=2133
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Node ID=3131
+time="2024-11-20T11:16:51-06:00" level=info msg="Adress provided by user" Adress=3131
+time="2024-11-20T11:16:51-06:00" level=info msg="ID selected by user" Protocol=3131
+time="2024-11-20T11:51:09-06:00" level=info msg="ID selected by user" Node ID=9074
+time="2024-11-20T11:51:09-06:00" level=info msg="Adress provided by user" Adress=9074
+time="2024-11-20T11:51:09-06:00" level=info msg="ID selected by user" Protocol=9074
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Node ID=8916
+time="2024-11-20T11:52:09-06:00" level=info msg="Adress provided by user" Adress=8916
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Protocol=8916
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Node ID=1163
+time="2024-11-20T11:52:09-06:00" level=info msg="Adress provided by user" Adress=1163
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Protocol=1163
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Node ID=8938
+time="2024-11-20T11:52:09-06:00" level=info msg="Adress provided by user" Adress=8938
+time="2024-11-20T11:52:09-06:00" level=info msg="ID selected by user" Protocol=8938
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Node ID=7484
+time="2024-11-20T11:59:36-06:00" level=info msg="Adress provided by user" Adress=7484
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Protocol=7484
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Node ID=9312
+time="2024-11-20T11:59:36-06:00" level=info msg="Adress provided by user" Adress=9312
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Protocol=9312
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Node ID=7042
+time="2024-11-20T11:59:36-06:00" level=info msg="Adress provided by user" Adress=7042
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Protocol=7042
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Node ID=875
+time="2024-11-20T11:59:36-06:00" level=info msg="Adress provided by user" Adress=875
+time="2024-11-20T11:59:36-06:00" level=info msg="ID selected by user" Protocol=875
+time="2024-11-20T12:02:32-06:00" level=info msg="ID selected by user" Node ID=1950
+time="2024-11-20T12:02:32-06:00" level=info msg="Adress provided by user" Adress=1950
+time="2024-11-20T12:02:32-06:00" level=info msg="ID selected by user" Protocol=1950
+time="2024-11-20T12:02:32-06:00" level=info msg="ID selected by user" Node ID=176
+time="2024-11-20T12:02:32-06:00" level=info msg="Adress provided by user" Adress=176
+time="2024-11-20T12:02:32-06:00" level=info msg="ID selected by user" Protocol=176
+time="2024-11-20T12:04:50-06:00" level=info msg="ID selected by user" Node ID=7857
+time="2024-11-20T12:04:50-06:00" level=info msg="Adress provided by user" Adress=7857
+time="2024-11-20T12:04:50-06:00" level=info msg="ID selected by user" Protocol=7857
+time="2024-11-20T12:04:50-06:00" level=info msg="ID selected by user" Node ID=4933
+time="2024-11-20T12:04:50-06:00" level=info msg="Adress provided by user" Adress=4933
+time="2024-11-20T12:04:50-06:00" level=info msg="ID selected by user" Protocol=4933
+time="2024-11-20T12:07:37-06:00" level=info msg="ID selected by user" Node ID=7539
+time="2024-11-20T12:07:37-06:00" level=info msg="Adress provided by user" Adress=7539
+time="2024-11-20T12:07:37-06:00" level=info msg="ID selected by user" Protocol=7539
+time="2024-11-20T12:07:37-06:00" level=info msg="ID selected by user" Node ID=3400
+time="2024-11-20T12:07:37-06:00" level=info msg="Adress provided by user" Adress=3400
+time="2024-11-20T12:07:37-06:00" level=info msg="ID selected by user" Protocol=3400
+time="2024-11-20T12:10:16-06:00" level=info msg="ID selected by user" Node ID=258
+time="2024-11-20T12:10:16-06:00" level=info msg="Adress provided by user" Adress=258
+time="2024-11-20T12:10:16-06:00" level=info msg="ID selected by user" Protocol=258
+time="2024-11-20T12:10:16-06:00" level=info msg="ID selected by user" Node ID=4602
+time="2024-11-20T12:10:16-06:00" level=info msg="Adress provided by user" Adress=4602
+time="2024-11-20T12:10:16-06:00" level=info msg="ID selected by user" Protocol=4602
+time="2024-11-20T12:27:38-06:00" level=info msg="ID selected by user" Node ID=3450
+time="2024-11-20T12:27:38-06:00" level=info msg="Adress provided by user" Adress=3450
+time="2024-11-20T12:27:38-06:00" level=info msg="ID selected by user" Protocol=3450
+time="2024-11-20T12:27:38-06:00" level=info msg="ID selected by user" Node ID=4044
+time="2024-11-20T12:27:38-06:00" level=info msg="Adress provided by user" Adress=4044
+time="2024-11-20T12:27:38-06:00" level=info msg="ID selected by user" Protocol=4044
+time="2024-11-20T12:28:53-06:00" level=info msg="ID selected by user" Node ID=5136
+time="2024-11-20T12:28:53-06:00" level=info msg="Adress provided by user" Adress=5136
+time="2024-11-20T12:28:53-06:00" level=info msg="ID selected by user" Protocol=5136
+time="2024-11-20T12:28:53-06:00" level=info msg="ID selected by user" Node ID=5316
+time="2024-11-20T12:28:53-06:00" level=info msg="Adress provided by user" Adress=5316
+time="2024-11-20T12:28:53-06:00" level=info msg="ID selected by user" Protocol=5316
+time="2024-11-20T13:51:32-06:00" level=info msg="ID selected by user" Node ID=6033
+time="2024-11-20T13:51:32-06:00" level=info msg="Adress provided by user" Adress=6033
+time="2024-11-20T13:51:32-06:00" level=info msg="ID selected by user" Protocol=6033
+time="2024-11-20T13:51:32-06:00" level=info msg="ID selected by user" Node ID=3828
+time="2024-11-20T13:51:32-06:00" level=info msg="Adress provided by user" Adress=3828
+time="2024-11-20T13:51:32-06:00" level=info msg="ID selected by user" Protocol=3828
+time="2024-11-20T14:58:55-06:00" level=info msg="ID selected by user" Node ID=9562
+time="2024-11-20T14:58:55-06:00" level=info msg="Adress provided by user" Adress=9562
+time="2024-11-20T14:58:55-06:00" level=info msg="ID selected by user" Protocol=9562
+time="2024-11-20T14:58:55-06:00" level=info msg="ID selected by user" Node ID=92
+time="2024-11-20T14:58:55-06:00" level=info msg="Adress provided by user" Adress=92
+time="2024-11-20T14:58:55-06:00" level=info msg="ID selected by user" Protocol=92

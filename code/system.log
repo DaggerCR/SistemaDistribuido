@@ -95,3 +95,52 @@ time="2024-11-19T02:33:46-06:00" level=info msg="Starting nodes..." Created node
 time="2024-11-19T02:35:39-06:00" level=info msg="Starting nodes..." Created nodes with quantity =9
 time="2024-11-19T02:43:34-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
 time="2024-11-19T02:43:38-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T10:42:51-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T10:51:28-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T10:57:36-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T10:58:59-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T10:59:12-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:00:06-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:02:10-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:04:19-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T11:07:59-06:00" level=info msg="Starting nodes..." Created nodes with quantity =0
+time="2024-11-20T11:08:05-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T11:08:13-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:08:41-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T11:16:30-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T11:16:39-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:16:51-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T11:51:08-06:00" level=info msg="Starting nodes..." Created nodes with quantity =1
+time="2024-11-20T11:51:13-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T11:51:42-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:52:09-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T11:58:39-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T11:59:15-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T11:59:25-06:00" level=warning msg="Invalid option selected by user" Option selected: =34
+time="2024-11-20T11:59:28-06:00" level=warning msg="Invalid option selected by user" Option selected: =
+time="2024-11-20T11:59:35-06:00" level=info msg="Starting nodes..." Created nodes with quantity =4
+time="2024-11-20T12:02:18-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T12:02:24-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:02:31-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T12:04:21-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T12:04:27-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:04:49-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T12:07:13-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:07:36-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T12:10:06-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T12:10:10-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:10:16-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T12:25:57-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:26:19-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:27:08-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:27:21-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:27:33-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:27:38-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T12:28:42-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T12:28:53-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T13:23:56-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T13:51:25-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T13:51:31-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T14:58:50-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T14:58:55-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T16:30:05-06:00" level=info msg="Exit system by user decision"

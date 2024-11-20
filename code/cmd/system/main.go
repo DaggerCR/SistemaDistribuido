@@ -31,7 +31,7 @@ func main() {
 	var sys system.System
 	systemUp := false
 	for {
-		time.Sleep(3 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		fmt.Println("Menu:")
 		fmt.Println("1. Start System")
 		fmt.Println("2. View System log")
@@ -49,12 +49,14 @@ func main() {
 
 		switch input {
 		case "1":
-
-			sys = *system.NewSystem()
-			go sys.StartSystem()
-			log.WithField("System start", true).Info("Starting system...")
-			systemUp = true
-
+			if !systemUp {
+				sys = *system.NewSystem()
+				go sys.StartSystem()
+				log.WithField("System start", true).Info("Starting system...")
+				systemUp = true
+			} else {
+				fmt.Println("\nSystem already up ")
+			}
 		case "2":
 			logFileContent, err := os.ReadFile("system.log")
 			if err != nil {
@@ -108,6 +110,7 @@ func main() {
 			}
 		case "4":
 			if systemUp {
+				fmt.Println("Input number of nodes to create: \t")
 				input, err := reader.ReadString('\n')
 				if err != nil {
 					log.WithError(err).Error("Error reading user input")

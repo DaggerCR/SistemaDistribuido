@@ -39,7 +39,7 @@ func (s *System) StartSystem() {
 	fmt.Println("System is starting...")
 	go s.OpenServer()
 	go s.StartHeartbeatChecker()
-	go s.WaitlistRetry()
+	//go s.WaitlistRetry()
 
 	select {} // Block forever
 }
@@ -48,6 +48,7 @@ func (s *System) StartSystem() {
 func (s *System) OpenServer() {
 	if err := utils.LoadVEnv(); err != nil {
 		customerrors.HandleError(err)
+		os.Exit(1)
 	}
 	protocol := os.Getenv("PROTOCOL")
 	port := os.Getenv("PORT")
@@ -83,9 +84,11 @@ func (s *System) AddNodes(quantity int) {
 			fmt.Println("Error getting working directory:", err)
 			return
 		}
-		parentDir := filepath.Dir(wd)
-		cmdPath := filepath.Join(parentDir, "node", "main.go")
-
+		cmdPath := filepath.Join(wd, "cmd", "node", "main.go")
+		/*
+			parentDir := filepath.Dir(wd)
+			cmdPath := filepath.Join(parentDir, "node", "main.go")
+		*/
 		// Create the command
 		cmd := exec.Command("go", "run", cmdPath, fmt.Sprint(s.GetRandomIdNotInNodes()))
 		// Capture output for debugging
@@ -173,7 +176,7 @@ func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
 		{
 
 			//content only contains the float64 result parsed as a string
-			s.ReceiveReturnedRes(msg.Task, utils.NodeId(msg.Sender), msg.Content, conn)
+			//s.ReceiveReturnedRes(msg.Task, utils.NodeId(msg.Sender), msg.Content, conn)
 		}
 	default:
 		fmt.Println("Unknown action received.", msg.Content)
@@ -214,12 +217,7 @@ func (s *System) ParseResult(resString string) (float64, error) {
 
 func (s *System) ReceiveTaskSuccess(nodeId utils.NodeId, buffer []byte, task task.Task) {
 	if !task.IsFinished {
-		currentLoad, ok := s.taskScheduler.GetLoadBalance(nodeId)
-		if !ok {
-			s.RemoveSystemNode(nodeId) //TODO
-		}
-		currentLoad++
-		s.taskScheduler.UpdateLoadBalance(nodeId, currentLoad)
+		fmt.Printf("\n[INFO] Task with id %v from process with id %v was asigned correclty to node with id %v\n", task.Id, nodeId, task.IdProc)
 	}
 }
 
@@ -262,10 +260,8 @@ func (s *System) StartHeartbeatChecker() {
 }
 
 func (s *System) CheckHeartbeat() {
-	//fmt.Println("Checking heartbeat of nodes...")
-
-	s.mu.Lock()     // Lock for healthRegistry
-	s.muConn.Lock() // Lock for systemNodes
+	s.mu.Lock()
+	s.muConn.Lock()
 	defer s.mu.Unlock()
 	defer s.muConn.Unlock()
 
@@ -274,7 +270,8 @@ func (s *System) CheckHeartbeat() {
 		s.healthRegistry[nodeId] = newChecks
 
 		if newChecks >= 3 {
-			fmt.Printf("Node %d will be killed.\n", nodeId)
+			fmt.Printf("Node %d is unresponsive. Reassigning tasks and removing from system.\n", nodeId)
+			s.taskScheduler.ReassignTasksForNode(nodeId)
 			delete(s.healthRegistry, nodeId)
 			delete(s.systemNodes, nodeId)
 		}
@@ -311,14 +308,11 @@ func (s *System) GetConnection(nodeId utils.NodeId) (net.Conn, bool) {
 	return conn, exists
 }
 
-func (s *System) CreateNewProcess(entryArray []float64) error {
+func (s *System) CreateNewProcess(entryArray []float64) {
 	s.muConn.Lock()
 	defer s.muConn.Unlock()
-	_, err := s.taskScheduler.CreateNewProcess(entryArray, len(s.systemNodes), s.systemNodes)
-	if err != nil {
-		return fmt.Errorf("error in process creation: %v", err)
-	}
-	return nil
+	s.taskScheduler.CreateNewProcess(entryArray, len(s.systemNodes), s.systemNodes)
+
 }
 
 func (s *System) WaitlistRetry() {

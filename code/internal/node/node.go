@@ -228,5 +228,5 @@ func (n *Node) Print() {
 		fmt.Printf("%v:\t%v\n", idx, task.Print())
 	}
 	fmt.Println("---------------------------------------------------------------------------------------------")
-	fmt.Println("\n")
+	fmt.Println("")
 }
