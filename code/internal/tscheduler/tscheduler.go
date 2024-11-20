@@ -98,7 +98,7 @@ func (ts *TScheduler) GetLoadBalance(nodeId utils.NodeId) (utils.Load, bool) {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 	load, ok := ts.loadBalance[nodeId]
-	fmt.Println("LOAD FOR THIS MF IS: ", load)
+	fmt.Printf("Load of node %d is: %d\n", nodeId, load)
 	return load, ok
 }
 
@@ -195,6 +195,7 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc uti
 		return []task.Task{}, 0, nil // No entries to process
 	}
 	chunkLen := (len(entryArray) + numNodes - 1) / numNodes
+	chunkLen = 3
 	var tasks []task.Task
 	chunks, err := utils.SliceUpArray(entryArray, chunkLen)
 	if err != nil {
@@ -222,14 +223,17 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 
 		// Check the current load of the node
 		load, found := ts.GetLoadBalance(nodeId)
-		if !found || load >= utils.Load(maxNodeLoad) {
+		if !found || load > utils.Load(maxNodeLoad) {
 			fmt.Printf("\n Skipping over because found : %v or overload %v/%v \n", found, load, maxNodeLoad)
 			continue // Skip overloaded or unknown nodes
 		}
 
+		fmt.Printf("\nNeed to assign %d tasks\n", len(tasks))
+
 		// Assign the task to this node
 		task := tasks[idx]
 		content := fmt.Sprintf("\nAssigned task with id %v from process: %v to node: %v\n", task.Id, task.IdProc, nodeId)
+		fmt.Printf(content)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
 		if err := message.SendMessage(msg, conn); err != nil {
 			fmt.Printf("\nError assigning task %v to node %v: %v; assigned to waitlist\n", task.Id, nodeId, err)
@@ -315,7 +319,7 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 	newProcessId := ts.GetRandomIdNotInProcesses()
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
-	if len(ts.processes) >= ts.maxNodeTaskLoad {
+	if len(ts.processes) >= ts.maxSystemProcesses {
 		return 0, errors.New("system is at maximum capacity, try later")
 	}
 	ts.processes[newProcessId] = process.NewProcess(newProcessId)
@@ -327,7 +331,7 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 	ts.processes[newProcessId].AppendDependencies(tasks...)
 	ts.AsignTasks(tasks, connections)
 
-	fmt.Printf("\nProcess created with id %v", newProcessId)
+	fmt.Printf("\nProcess created with id %v\n", newProcessId)
 
 	return numTasks, nil
 }

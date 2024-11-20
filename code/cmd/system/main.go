@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -30,6 +31,7 @@ func main() {
 	var sys system.System
 	systemUp := false
 	for {
+		time.Sleep(3 * time.Second)
 		fmt.Println("Menu:")
 		fmt.Println("1. Start System")
 		fmt.Println("2. View System log")

@@ -21,7 +21,7 @@ type ProcId int
 
 // functions
 func LoadVEnv() error {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("../../.env"); err != nil {
 		return errors.New("internal server error")
 	}
 	fmt.Println("Loading venv:sucess")

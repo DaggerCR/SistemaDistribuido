@@ -77,17 +77,17 @@ func (s *System) OpenServer() {
 
 func (s *System) AddNodes(quantity int) {
 	for i := 0; i < quantity; i++ {
-		// Dynamically construct the path to main.go
+		// Dynamically construct the path to node/main.go
 		wd, err := os.Getwd()
 		if err != nil {
 			fmt.Println("Error getting working directory:", err)
 			return
 		}
-		cmdPath := filepath.Join(wd, "cmd", "node", "main.go")
+		parentDir := filepath.Dir(wd)
+		cmdPath := filepath.Join(parentDir, "node", "main.go")
 
 		// Create the command
 		cmd := exec.Command("go", "run", cmdPath, fmt.Sprint(s.GetRandomIdNotInNodes()))
-
 		// Capture output for debugging
 		var out bytes.Buffer
 		var stderr bytes.Buffer
