@@ -46,22 +46,28 @@ func (n *Node) Conn() net.Conn {
 	return n.conn
 }
 
-func (n *Node) AppendTask(newTask task.Task) {
+func (n *Node) AppendTask(newTask task.Task) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.taskQueue = append(n.taskQueue, newTask)
+	fmt.Printf("[DEBUG] Appended task %v to Node %v. Queue size: %v\n", newTask.Id, n.id, len(n.taskQueue))
+	return nil
 }
 
 func (n *Node) PopTask() (task.Task, bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if len(n.taskQueue) > 0 {
-		deletedTask := n.taskQueue[0]
-		newQueue := n.taskQueue[0:]
-		n.taskQueue = newQueue
-		return deletedTask, true
+
+	if len(n.taskQueue) == 0 {
+		fmt.Printf("[DEBUG] Task queue is empty for Node %v.\n", n.id)
+		return task.Task{}, false
 	}
-	return *task.NewTask(-1, -1, []float64{}), false
+
+	task := n.taskQueue[0]
+	newQueue := n.taskQueue[1:]
+	n.taskQueue = newQueue
+	fmt.Printf("[DEBUG] Popped task %v from Node %v. Remaining queue size: %v\n", task.Id, n.id, len(n.taskQueue))
+	return task, true
 }
 
 func (n *Node) CalcSum(task task.Task) float64 {
@@ -120,18 +126,21 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 }
 
 func (n *Node) HandleNodeConnection() error {
+	fmt.Printf("[INFO] Node %v is starting connection handler...\n", n.id)
 	go n.sendHeartBeat()
 	go n.ExecuteTask()
+
 	for {
 		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
-			fmt.Println("[WARNING]Error reading from client...:", err)
-			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
-			err = message.SendMessage(msg, n.conn)
-			if err != nil {
-				return fmt.Errorf("error handling connection up: %w", err)
+			if err.Error() == "EOF" {
+				fmt.Printf("[ERROR] Connection lost for Node %v.\n", n.id)
+				return fmt.Errorf("connection lost for node %v: %w", n.id, err)
+			} else {
+				fmt.Printf("[ERROR] Failed to read from connection for Node %v: %v\n", n.id, err)
 			}
 		}
+		fmt.Printf("[DEBUG] Node %v received a message.\n", n.id)
 		go n.HandleReceivedData(buffer)
 	}
 }

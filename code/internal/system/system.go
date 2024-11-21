@@ -214,7 +214,9 @@ func (s *System) ParseResult(resString string) (float64, error) {
 
 func (s *System) ReceiveTaskSuccess(nodeId utils.NodeId, buffer []byte, task task.Task) {
 	if !task.IsFinished {
-		fmt.Printf("\n[INFO] Task with id %v from process with id %v was asigned correclty to node with id %v\n", task.Id, nodeId, task.IdProc)
+		fmt.Printf("[INFO] Task %v (Process %v) successfully assigned to Node %v.\n", task.Id, task.IdProc, nodeId)
+	} else {
+		fmt.Printf("[WARNING] Task %v (Process %v) was reported as already finished by Node %v. Ignoring...\n", task.Id, task.IdProc, nodeId)
 	}
 }
 
@@ -227,23 +229,6 @@ func (s *System) ReceiveReturnedRes(task task.Task, nodeId utils.NodeId, resStri
 	}
 	s.taskScheduler.HandleProcessUpdate(task, nodeId, res)
 }
-
-/*
-func (s *System) ReceiveFailure(nodeId utils.NodeId, conn net.Conn, tasks ...task.Task) {
-	if len(tasks) > 0 {
-		s.ReceiveTaskFailure(nodeId, conn, tasks[0])
-	} else {
-		fmt.Println("Failure")
-	}
-}
-
-func (s *System) ReceiveTaskFailure(nodeId utils.NodeId, conn net.Conn, task task.Task) {
-	if !task.IsFinished {
-		//todo
-		fmt.Println("Receive task failure not implemented YET")
-	}
-}
-*/
 
 // StartHeartbeatChecker periodically checks node health.
 func (s *System) StartHeartbeatChecker() {
@@ -290,12 +275,12 @@ func (s *System) AppendNode(nodeId utils.NodeId, conn net.Conn) {
 	s.systemNodes[nodeId] = conn
 }
 
-// RemoveSystemNode safely removes a node from the systemNodes map.
 func (s *System) RemoveSystemNode(nodeId utils.NodeId) {
 	s.muConn.Lock()
 	defer s.muConn.Unlock()
-	fmt.Printf("DELETING NODE FROM SYSTEM WITH ID: %v", nodeId)
+	fmt.Printf("[INFO] Removing Node %v from the system...\n", nodeId)
 	delete(s.systemNodes, nodeId)
+	fmt.Printf("[INFO] Node %v successfully removed. Remaining nodes: %d\n", nodeId, len(s.systemNodes))
 }
 
 // GetConnection safely retrieves a connection by utils.NodeId.
@@ -309,8 +294,20 @@ func (s *System) GetConnection(nodeId utils.NodeId) (net.Conn, bool) {
 func (s *System) CreateNewProcess(entryArray []float64) {
 	s.muConn.Lock()
 	defer s.muConn.Unlock()
-	s.taskScheduler.CreateNewProcess(entryArray, len(s.systemNodes), s.systemNodes)
 
+	if len(s.systemNodes) == 0 {
+		fmt.Println("[ERROR] No nodes available to handle the process.")
+		return
+	}
+
+	fmt.Printf("[INFO] Creating a new process for entry array: %v\n", entryArray)
+	processId, err := s.taskScheduler.CreateNewProcess(entryArray, len(s.systemNodes), s.systemNodes)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to create tasks for process: %v\n", err)
+		return
+	}
+
+	fmt.Printf("[INFO] Successfully created process with id %w . Attempting assignment...\n", processId)
 }
 
 func (s *System) WaitlistRetry() {

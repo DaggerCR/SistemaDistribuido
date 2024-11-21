@@ -290,22 +290,25 @@ func (ts *TScheduler) GetRandomIdNotInProcesses() utils.ProcId {
 	}
 }
 
-// MUST HANDLE ERROR ON CALLER
-func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, connections map[utils.NodeId]net.Conn) {
+func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, connections map[utils.NodeId]net.Conn) (utils.ProcId, error) {
 	newProcessId := ts.GetRandomIdNotInProcesses()
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
+
 	if len(ts.processes) >= ts.maxSystemProcesses {
-		fmt.Println("[WARNING] System is at maximum capacity, try later")
+		return -1, fmt.Errorf("system at max capacity. Try later")
 	}
+
 	ts.processes[newProcessId] = process.NewProcess(newProcessId)
 	tasks, _, err := ts.CreateTasks(entryArray, numNodes, newProcessId)
 	if err != nil {
-		println("[WARNING] Error: creating tasks for process with id: %v : %v", newProcessId, err)
+		return -1, fmt.Errorf("error creating tasks for process %v: %v", newProcessId, err)
 	}
+
 	ts.processes[newProcessId].AppendDependencies(tasks...)
 	ts.AsignTasks(tasks, connections)
-	fmt.Printf("[INFO] Process created with id %v\n", newProcessId)
+	fmt.Printf("[INFO] Process created with ID %v\n", newProcessId)
+	return newProcessId, nil
 }
 
 // returns true if process is finished
@@ -441,20 +444,27 @@ func (ts *TScheduler) GetTasksByNodeId(nodeId utils.NodeId) ([]task.Task, bool) 
 }
 
 func (ts *TScheduler) ReassignTasksForNode(nodeId utils.NodeId) {
-	// Reassign tasks in taskRegistry for this node
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
+
 	tasks, ok := ts.taskRegistry[nodeId]
 	if !ok {
 		fmt.Printf("[DEBUG] No tasks to reassign for node %v.\n", nodeId)
 		return
 	}
+
 	for _, task := range tasks {
 		fmt.Printf("[WARNING] Reassigning task %v (Process: %v) due to node %v failure.\n", task.Id, task.IdProc, nodeId)
 		ts.taskWaitlist[task.Id] = task
-		ts.loadBalance[nodeId]--
 	}
-	// Remove the node from the registry
+
+	// Safely remove node and decrement load only if valid
+	_, exists := ts.loadBalance[nodeId]
+	if exists {
+		ts.loadBalance[nodeId] = 0 // Reset load to avoid inconsistencies
+		fmt.Printf("[DEBUG] Reset load balance for failed node %v.\n", nodeId)
+	}
+
 	delete(ts.taskRegistry, nodeId)
 	delete(ts.loadBalance, nodeId)
 }
