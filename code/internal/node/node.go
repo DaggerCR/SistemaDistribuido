@@ -46,19 +46,7 @@ func (n *Node) Conn() net.Conn {
 	return n.conn
 }
 
-<<<<<<< HEAD
 func (n *Node) AppendTask(newTask task.Task) error {
-=======
-func (n *Node) SetID(id int) {
-	n.id = id
-}
-
-func (n *Node) SetTaskQueue(taskQueue []task.Task) {
-	n.taskQueue = taskQueue
-}
-
-func (n *Node) AppendTask(newTask task.Task) {
->>>>>>> 425d36566f7878fecdfa31ab054f20c02aa1640a
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.taskQueue = append(n.taskQueue, newTask)
@@ -66,37 +54,17 @@ func (n *Node) AppendTask(newTask task.Task) {
 	return nil
 }
 
-func (n *Node) DeleteTassByIndex(idx int) (task.Task, bool) {
+func (n *Node) PopTask() (task.Task, bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-<<<<<<< HEAD
-
-	if len(n.taskQueue) == 0 {
-		fmt.Printf("[DEBUG] Task queue is empty for Node %v.\n", n.id)
-		return task.Task{}, false
+	if len(n.taskQueue) > 0 {
+		task := n.taskQueue[0]
+		newQueue := n.taskQueue[1:]
+		n.taskQueue = newQueue
+		fmt.Printf("[DEBUG] Popped task %v from Node %v. Remaining queue size: %v\n", task.Id, n.id, len(n.taskQueue))
+		return task, true
 	}
-
-	task := n.taskQueue[0]
-	newQueue := n.taskQueue[1:]
-	n.taskQueue = newQueue
-	fmt.Printf("[DEBUG] Popped task %v from Node %v. Remaining queue size: %v\n", task.Id, n.id, len(n.taskQueue))
-	return task, true
-=======
-	if len(n.taskQueue) == 0 {
-		return *task.NewTask(-1, -1, []float64{}), false
-	}
-	if idx < 0 || idx >= len(n.taskQueue) {
-		return *task.NewTask(-1, -1, []float64{}), false
-	}
-	deletedTask := n.taskQueue[idx]
-	newQueue := append(n.taskQueue[:idx], n.taskQueue[idx+1:]...)
-	n.taskQueue = newQueue
-	return deletedTask, true
-}
-
-func (n *Node) PopTask() (task.Task, bool) {
-	return n.DeleteTassByIndex(0)
->>>>>>> 425d36566f7878fecdfa31ab054f20c02aa1640a
+	return *task.NewTask(-1, -1, []float64{}), false
 }
 
 func (n *Node) CalcSum(task task.Task) float64 {
@@ -163,21 +131,10 @@ func (n *Node) HandleNodeConnection() error {
 		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
 			if err.Error() == "EOF" {
-<<<<<<< HEAD
 				fmt.Printf("[ERROR] Connection lost for Node %v.\n", n.id)
 				return fmt.Errorf("connection lost for node %v: %w", n.id, err)
 			} else {
 				fmt.Printf("[ERROR] Failed to read from connection for Node %v: %v\n", n.id, err)
-=======
-				fmt.Println("Conection with System port lost") //cuando se cierra el servidor aparece este mensaje
-			} else {
-				fmt.Println("Error reading from client...:", err)
-			}
-			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
-			err = message.SendMessage(msg, n.conn)
-			if err != nil {
-				return fmt.Errorf("error handling connection up: %w", err)
->>>>>>> 425d36566f7878fecdfa31ab054f20c02aa1640a
 			}
 		}
 		fmt.Printf("[DEBUG] Node %v received a message.\n", n.id)
@@ -208,11 +165,6 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 	switch msg.Action {
 	case message.AsignTask:
 		n.ReceiveAsignTask(msg.Task, utils.NodeId(msg.Sender))
-
-	case message.CleanUp:
-		n.SetTaskQueue([]task.Task{})
-		nodeUpMsg := message.NewMessageNoTask(message.ActionSuccess, "CleanUp completed", n.id)
-		message.SendMessage(nodeUpMsg, n.conn)
 	default:
 		fmt.Println("Not implemented yet", msg.Content, "*")
 	}
