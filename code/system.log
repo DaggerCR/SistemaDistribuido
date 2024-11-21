@@ -180,6 +180,7 @@ time="2024-11-20T17:46:07-06:00" level=info msg="Starting system..." System star
 time="2024-11-20T17:50:54-06:00" level=info msg="Exit system by user decision"
 time="2024-11-20T17:51:08-06:00" level=info msg="Starting system..." System start=true
 time="2024-11-20T17:52:18-06:00" level=info msg="Exit system by user decision"
+<<<<<<< HEAD
 time="2024-11-20T19:24:11-06:00" level=info msg="Starting system..." System start=true
 time="2024-11-20T19:24:16-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
 time="2024-11-20T19:31:42-06:00" level=info msg="Exit system by user decision"
@@ -203,3 +204,21 @@ time="2024-11-20T20:31:52-06:00" level=info msg="Exit system by user decision"
 time="2024-11-20T20:31:58-06:00" level=info msg="Starting system..." System start=true
 time="2024-11-20T20:32:03-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
 time="2024-11-20T20:32:26-06:00" level=info msg="Exit system by user decision"
+=======
+time="2024-11-20T18:35:14-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:35:34-06:00" level=info msg="Starting nodes..." Created nodes with quantity =2
+time="2024-11-20T18:39:20-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:41:03-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T18:41:19-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:41:39-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T18:44:25-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T18:45:07-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:45:11-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T18:46:38-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T18:46:42-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:46:48-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T18:48:50-06:00" level=info msg="Exit system by user decision"
+time="2024-11-20T18:48:54-06:00" level=info msg="Starting system..." System start=true
+time="2024-11-20T18:49:00-06:00" level=info msg="Starting nodes..." Created nodes with quantity =3
+time="2024-11-20T18:49:24-06:00" level=info msg="Exit system by user decision"
+>>>>>>> 425d36566f7878fecdfa31ab054f20c02aa1640a
