@@ -46,37 +46,22 @@ func (n *Node) Conn() net.Conn {
 	return n.conn
 }
 
-func (n *Node) SetID(id int) {
-	n.id = id
-}
-
-func (n *Node) SetTaskQueue(taskQueue []task.Task) {
-	n.taskQueue = taskQueue
-}
-
 func (n *Node) AppendTask(newTask task.Task) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.taskQueue = append(n.taskQueue, newTask)
 }
 
-func (n *Node) DeleteTassByIndex(idx int) (task.Task, bool) {
+func (n *Node) PopTask() (task.Task, bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if len(n.taskQueue) == 0 {
-		return *task.NewTask(-1, -1, []float64{}), false
+	if len(n.taskQueue) > 0 {
+		deletedTask := n.taskQueue[0]
+		newQueue := n.taskQueue[0:]
+		n.taskQueue = newQueue
+		return deletedTask, true
 	}
-	if idx < 0 || idx >= len(n.taskQueue) {
-		return *task.NewTask(-1, -1, []float64{}), false
-	}
-	deletedTask := n.taskQueue[idx]
-	newQueue := append(n.taskQueue[:idx], n.taskQueue[idx+1:]...)
-	n.taskQueue = newQueue
-	return deletedTask, true
-}
-
-func (n *Node) PopTask() (task.Task, bool) {
-	return n.DeleteTassByIndex(0)
+	return *task.NewTask(-1, -1, []float64{}), false
 }
 
 func (n *Node) CalcSum(task task.Task) float64 {
@@ -140,11 +125,7 @@ func (n *Node) HandleNodeConnection() error {
 	for {
 		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
-			if err.Error() == "EOF" {
-				fmt.Println("Conection with System port lost") //cuando se cierra el servidor aparece este mensaje
-			} else {
-				fmt.Println("Error reading from client...:", err)
-			}
+			fmt.Println("[WARNING]Error reading from client...:", err)
 			msg := message.NewMessageNoTask(message.ActionFailure, "Failed to read from node buffer", n.id)
 			err = message.SendMessage(msg, n.conn)
 			if err != nil {
@@ -160,11 +141,7 @@ func (n *Node) sendHeartBeat() {
 	defer ticker.Stop()
 	for range ticker.C {
 		msg := message.NewMessageNoTask(message.Heartbeat, "Heartbeat", n.id)
-		err := message.SendMessage(msg, n.conn)
-		if err != nil {
-			fmt.Println("Error sending heartBeat up: %w", err)
-			return
-		}
+		message.SendMessage(msg, n.conn)
 	}
 }
 
@@ -174,15 +151,9 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 		errorMsg := message.NewMessageNoTask(message.ActionFailure, "Invalid message revieved", n.id)
 		message.SendMessage(errorMsg, n.conn)
 	}
-	//fmt.Printf("Me, node %v, recieved content: %v\n", n.id, msg.Content)
 	switch msg.Action {
 	case message.AsignTask:
 		n.ReceiveAsignTask(msg.Task, utils.NodeId(msg.Sender))
-
-	case message.CleanUp:
-		n.SetTaskQueue([]task.Task{})
-		nodeUpMsg := message.NewMessageNoTask(message.ActionSuccess, "CleanUp completed", n.id)
-		message.SendMessage(nodeUpMsg, n.conn)
 	default:
 		fmt.Println("Not implemented yet", msg.Content, "*")
 	}

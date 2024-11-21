@@ -60,17 +60,6 @@ func (ts *TScheduler) TaskWaitlist() map[utils.TaskId]task.Task {
 	return ts.taskWaitlist
 }
 
-// Setters
-
-// SetTaskQueue updates the taskWaitlist slice.
-func (ts *TScheduler) SetTaskWaitlist(tasks map[utils.TaskId]task.Task) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	ts.taskWaitlist = tasks
-}
-
-// Append Methods
-
 // AppendToTaskRegistry adds a single task to the taskRegistry slice.
 func (ts *TScheduler) AppendToTaskRegistry(nodeId utils.NodeId, task task.Task) {
 	ts.mu.Lock()
@@ -83,13 +72,6 @@ func (ts *TScheduler) AppendToTaskWaitlist(taskId utils.TaskId, task task.Task) 
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.taskWaitlist[taskId] = task
-}
-
-// UpdateLoadBalance sets the load for a given utils.NodeId.
-func (ts *TScheduler) UpdateLoadBalance(nodeId utils.NodeId, load utils.Load) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	ts.loadBalance[nodeId] = load
 }
 
 // GetLoadBalance retrieves the load for a given utils.NodeId.
@@ -119,13 +101,6 @@ func (ts *TScheduler) Processes() map[utils.ProcId]*process.Process {
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
 	return ts.processes
-}
-
-// SetProcesses updates the processes slice in the system.
-func (ts *TScheduler) SetProcesses(processes map[utils.ProcId]*process.Process) {
-	ts.processMu.Lock()
-	defer ts.processMu.Unlock()
-	ts.processes = processes
 }
 
 func (ts *TScheduler) GetTaskFromWaitlist(taskId utils.TaskId) (task.Task, bool) {
@@ -282,8 +257,8 @@ func (ts *TScheduler) AttemptReasign(connections map[utils.NodeId]net.Conn) {
 	for _, task := range currentTasksWaitlist {
 		currentUnasignedTasks = append(currentUnasignedTasks, task)
 	}
+	ts.taskWaitlist = (make(map[utils.TaskId]task.Task))
 	ts.mu.Unlock()
-	ts.SetTaskWaitlist(make(map[utils.TaskId]task.Task))
 	ts.AsignTasks(currentUnasignedTasks, connections)
 }
 
