@@ -307,7 +307,7 @@ func (s *System) CreateNewProcess(entryArray []float64) {
 		return
 	}
 
-	fmt.Printf("[INFO] Successfully created process with id %w . Attempting assignment...\n", processId)
+	fmt.Printf("[INFO] Successfully created process with id %d. Attempting assignment...\n", processId)
 }
 
 func (s *System) WaitlistRetry() {
