@@ -2,8 +2,8 @@ package utils
 
 import (
 	"bufio"
+	"distributed-system/logs"
 	"errors"
-	"fmt"
 	"math/rand/v2"
 	"os"
 	"strconv"
@@ -21,10 +21,11 @@ type ProcId int
 
 // functions
 func LoadVEnv() error {
+	logs.Initialize()
 	if err := godotenv.Load(); err != nil {
 		return errors.New("internal server error")
 	}
-	fmt.Println("[INFO] Loading venv:sucess")
+	logs.Log.Info("[INFO] Loading venv:sucess")
 	return nil
 }
 

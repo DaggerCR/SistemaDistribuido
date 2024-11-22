@@ -3,6 +3,7 @@ package tscheduler
 import (
 	"distributed-system/internal/message"
 	"distributed-system/internal/process"
+	"distributed-system/logs"
 	"errors"
 	"sync"
 
@@ -12,6 +13,8 @@ import (
 	"net"
 	"os"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 type TScheduler struct {
@@ -97,7 +100,6 @@ func (ts *TScheduler) GetLoadBalance(nodeId utils.NodeId) (utils.Load, bool) {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 	load, ok := ts.loadBalance[nodeId]
-	//fmt.Printf("Load of node %d is: %d\n", nodeId, load)
 	return load, ok
 }
 
@@ -156,6 +158,7 @@ func (ts *TScheduler) RemoveProcess(procId utils.ProcId) {
 
 func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc utils.ProcId) ([]task.Task, int, error) {
 	//numNodes never passes as less than or equal 0
+	logs.Initialize()
 	if numNodes <= 0 {
 		return []task.Task{}, 0, errors.New("numNodes must be greater than 0")
 	}
@@ -179,18 +182,22 @@ func (ts *TScheduler) CreateTasks(entryArray []float64, numNodes int, idProc uti
 }
 
 func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId]net.Conn) {
+	logs.Initialize()
 	if len(tasks) == 0 {
 		return
 	}
 
-	fmt.Printf("[DEBUG] Starting assignment for %d tasks (Process ID: %v)\n", len(tasks), tasks[0].IdProc)
+	logs.Log.WithFields(logrus.Fields{
+		"taskLenght": len(tasks),
+		"processID":  tasks[0].IdProc,
+	}).Infof("[DEBUG] Starting assignment for %d tasks (Process ID: %v)\n", len(tasks), tasks[0].IdProc)
 
 	maxNodeLoad := ts.maxNodeTaskLoad // Cached for performance
 
 	// Step 1: Gather eligible nodes
 	eligibleNodes := ts.getEligibleNodes(connections, maxNodeLoad)
 	if len(eligibleNodes) == 0 {
-		fmt.Println("[WARNING] No eligible nodes available for task assignment.")
+		logs.Log.Warn("[WARNING] No eligible nodes available for task assignment.")
 		ts.addMultipleToTaskWaitlist(tasks)
 		return
 	}
@@ -205,14 +212,14 @@ func (ts *TScheduler) AsignTasks(tasks []task.Task, connections map[utils.NodeId
 
 	// Step 3: Handle unassigned tasks
 	if len(unassignedTasks) > 0 {
-		fmt.Printf("[WARNING] Could not assign %d tasks. Adding to waitlist.\n", len(unassignedTasks))
+		logs.Log.WithField("Could not assign %d tasks. Adding to waitlist.\n", len(unassignedTasks)).Warn("[WARNING]")
 		ts.addMultipleToTaskWaitlist(unassignedTasks)
 	}
-
-	fmt.Println("[DEBUG] Task assignment process completed.")
+	logs.Log.Debug("[DEBUG] Task assignment process completed.")
 }
 
 func (ts *TScheduler) getEligibleNodes(connections map[utils.NodeId]net.Conn, maxNodeLoad int) map[utils.NodeId]net.Conn {
+	logs.Initialize()
 	eligibleNodes := make(map[utils.NodeId]net.Conn)
 	var mu sync.Mutex
 	wg := sync.WaitGroup{}
@@ -223,11 +230,15 @@ func (ts *TScheduler) getEligibleNodes(connections map[utils.NodeId]net.Conn, ma
 			defer wg.Done()
 			load, ok := ts.GetLoadBalance(nodeId)
 			if !ok {
-				fmt.Printf("[INFO] Node %v has no load data; skipping.\n", nodeId)
+				logs.Log.WithField("nodeId", nodeId).Infof("[INFO] Node %v has no load data; skipping.\n", nodeId)
 				return
 			}
 			if load >= utils.Load(maxNodeLoad) {
-				fmt.Printf("[DEBUG] Node %v is overloaded (%v/%v); skipping.\n", nodeId, load, maxNodeLoad)
+				logs.Log.WithFields(logrus.Fields{
+					"nodeId":      nodeId,
+					"currentLoad": load,
+					"maxLoad":     maxNodeLoad,
+				}).Debugf("[DEBUG] Node %v is overloaded (%v/%v); skipping.\n", nodeId, load, maxNodeLoad)
 				return
 			}
 			mu.Lock()
@@ -236,11 +247,12 @@ func (ts *TScheduler) getEligibleNodes(connections map[utils.NodeId]net.Conn, ma
 		}(nodeId, conn)
 	}
 	wg.Wait()
-	fmt.Printf("[DEBUG] Found %d eligible nodes for assignment.\n", len(eligibleNodes))
+	logs.Log.WithField("eligibleNodesCount", len(eligibleNodes)).Debugf("[DEBUG] Found %d eligible nodes for assignment.\n", len(eligibleNodes))
 	return eligibleNodes
 }
 
 func (ts *TScheduler) distributeTasksEvenly(tasks []task.Task, nodeIds []utils.NodeId, eligibleNodes map[utils.NodeId]net.Conn, maxNodeLoad int) []task.Task {
+	logs.Initialize()
 	var unassignedTasks []task.Task
 	nodeCount := len(nodeIds)
 
@@ -250,18 +262,31 @@ func (ts *TScheduler) distributeTasksEvenly(tasks []task.Task, nodeIds []utils.N
 
 		load, ok := ts.GetLoadBalance(nodeId)
 		if !ok || load >= utils.Load(maxNodeLoad) {
-			fmt.Printf("[DEBUG] Node %v is overloaded (%v/%v). Adding task %v to waitlist.\n", nodeId, load, maxNodeLoad, task.Id)
+			logs.Log.WithFields(logrus.Fields{
+				"nodeId":      nodeId,
+				"currentLoad": load,
+				"maxLoad":     maxNodeLoad,
+				"taskId":      task.Id,
+			}).Debugf("[DEBUG] Node %v is overloaded (%v/%v). Adding task %v to waitlist.\n", nodeId, load, maxNodeLoad, task.Id)
 			unassignedTasks = append(unassignedTasks, task)
 			continue
 		}
 
 		// Send the task to the node
 		content := fmt.Sprintf("[DEBUG] Assigning task %v (Process: %v) to node %v.", task.Id, task.IdProc, nodeId)
-		fmt.Println(content)
+		logs.Log.WithFields(logrus.Fields{
+			"taskId":    task.Id,
+			"processId": task.IdProc,
+			"nodeId":    nodeId,
+		}).Debugf("[DEBUG] Assigning task %v (Process: %v) to node %v.", task.Id, task.IdProc, nodeId)
 		msg := message.NewMessage(message.AsignTask, content, task, 0)
 
 		if err := message.SendMessage(msg, conn); err != nil {
-			fmt.Printf("[ERROR] Failed to send task %v to node %v: %v\n", task.Id, nodeId, err)
+			logs.Log.WithFields(logrus.Fields{
+				"taskId": task.Id,
+				"nodeId": nodeId,
+				"error":  err,
+			}).Errorf("[ERROR] Failed to send task %v to node %v: %v\n", task.Id, nodeId, err)
 			unassignedTasks = append(unassignedTasks, task)
 			continue
 		}
@@ -269,7 +294,12 @@ func (ts *TScheduler) distributeTasksEvenly(tasks []task.Task, nodeIds []utils.N
 		// Task successfully sent, update the load and registry
 		ts.AppendToTaskRegistry(nodeId, task)
 		ts.IncrementLoadBalance(nodeId)
-		fmt.Printf("[DEBUG] Task %v assigned to node %v. Load: %v/%v.\n", task.Id, nodeId, load+1, maxNodeLoad)
+		logs.Log.WithFields(logrus.Fields{
+			"taskId":  task.Id,
+			"nodeId":  nodeId,
+			"newLoad": load + 1,
+			"maxLoad": maxNodeLoad,
+		}).Debugf("[DEBUG] Task %v assigned to node %v. Load: %v/%v.\n", task.Id, nodeId, load+1, maxNodeLoad)
 	}
 
 	return unassignedTasks
@@ -288,12 +318,14 @@ func (ts *TScheduler) AttemptReasign(connections map[utils.NodeId]net.Conn) {
 }
 
 func (ts *TScheduler) addMultipleToTaskWaitlist(entries []task.Task) {
+	logs.Initialize()
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	for _, task := range entries {
 		ts.taskWaitlist[task.Id] = task
 	}
-	fmt.Printf("[DEBUG] Added %d tasks to the waitlist.\n", len(entries))
+	logs.Log.WithField("waitlistCount", len(entries)).
+		Debugf("[DEBUG] Added %d tasks to the waitlist.\n", len(entries))
 }
 
 func (ts *TScheduler) GetRandomIdNotInProcesses() utils.ProcId {
@@ -316,6 +348,7 @@ func (ts *TScheduler) GetRandomIdNotInProcesses() utils.ProcId {
 }
 
 func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, connections map[utils.NodeId]net.Conn) (utils.ProcId, error) {
+	logs.Initialize()
 	newProcessId := ts.GetRandomIdNotInProcesses()
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
@@ -332,22 +365,27 @@ func (ts *TScheduler) CreateNewProcess(entryArray []float64, numNodes int, conne
 
 	ts.processes[newProcessId].AppendDependencies(tasks...)
 	ts.AsignTasks(tasks, connections)
-	fmt.Printf("[INFO] Process created with ID %v\n", newProcessId)
+	logs.Log.WithField("Process created with ID", newProcessId).Info("[INFO]")
 	return newProcessId, nil
 }
 
 // returns true if process is finished
 func (ts *TScheduler) UpdateProcessRes(idProc utils.ProcId, res float64) bool {
 	ts.processMu.Lock()
+	logs.Initialize()
 	defer ts.processMu.Unlock()
 	procToUpdate, ok := ts.processes[idProc]
 	if !ok {
-		fmt.Printf("[WARNING] Recieved update for non existing procedure %v, canceling operation...\n", idProc)
+		logs.Log.WithField("processId", idProc).
+			Warnf("[WARNING] Received update for non-existing procedure %v, canceling operation...\n", idProc)
 		return false
 	}
 	procToUpdate.AugmentRes(res)
 
-	fmt.Printf("[DEBUG] Result for process with id: %v was augmneted by :%v \n", idProc, res)
+	logs.Log.WithFields(logrus.Fields{
+		"processId":    idProc,
+		"augmentation": res,
+	}).Debugf("[DEBUG] Result for process with id: %v was augmented by: %v\n", idProc, res)
 	return true
 }
 
@@ -370,15 +408,11 @@ func (ts *TScheduler) UpdateRedundacyTaskStatus(taskId utils.TaskId, nodeId util
 }
 
 func (ts *TScheduler) UpdateProcessTaskStatus(taskId utils.TaskId, procId utils.ProcId) bool {
-	//fmt.Println("TEST2.X")
 	ts.processMu.Lock()
 	defer ts.processMu.Unlock()
-	//fmt.Println("TEST2.2")
 	processModified, ok := ts.processes[procId]
 	if ok {
-		//fmt.Println("TEST2.3")
 		processModified.UpdateTaskStatus(taskId, true)
-		//fmt.Println("TEST2.4")
 		ts.processes[procId] = processModified
 		return true
 	}
@@ -386,20 +420,24 @@ func (ts *TScheduler) UpdateProcessTaskStatus(taskId utils.TaskId, procId utils.
 }
 
 func (ts *TScheduler) HandleProcessUpdate(task task.Task, nodeId utils.NodeId, res float64) bool {
+	logs.Initialize()
 	if ts.UpdateProcessRes(task.IdProc, res) {
 		if !ts.DeleteRedundacyTaskStatus(task.Id, nodeId) {
-			fmt.Println("[WARNING] Couldnt find task with nodeId: ", nodeId)
+			logs.Log.WithField("nodeId", nodeId).Warn("[WARNING] Couldnt find task with nodeId.")
 			return false
 		}
 		if !ts.UpdateProcessTaskStatus(task.Id, task.IdProc) {
-			fmt.Printf("[WARNING] Couldnt find process  %v, with task: %v \n", task.IdProc, task.Id)
+			logs.Log.WithFields(logrus.Fields{
+				"processId": task.IdProc,
+				"taskId":    task.Id,
+			}).Warnf("[WARNING] Couldnt find process %v, with task: %v", task.IdProc, task.Id)
 			return false
 		}
 		ts.DecrementLoadBalance(nodeId)
 		ts.processMu.Lock()
 		process, ok := ts.processes[task.IdProc]
 		if !ok {
-			fmt.Println("Error could not find process after all checks?")
+			logs.Log.Error("Error: could not find process after all checks?")
 		}
 		if process.CheckFinished() {
 			delete(ts.processes, task.IdProc)
@@ -427,20 +465,27 @@ func (ts *TScheduler) DeleteRedundacyTaskStatus(taskId utils.TaskId, nodeId util
 
 func (ts *TScheduler) IncrementLoadBalance(nodeId utils.NodeId) {
 	ts.mu.Lock()
+	logs.Initialize()
 	defer ts.mu.Unlock()
 
 	// Check if the node exists in the load balance map
 	currentLoad, ok := ts.loadBalance[nodeId]
 	if ok {
 		ts.loadBalance[nodeId]++
-		fmt.Printf("[DEBUG] Incremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad+1)
+		logs.Log.WithFields(logrus.Fields{
+			"nodeId":       nodeId,
+			"previousLoad": currentLoad,
+			"newLoad":      currentLoad + 1,
+		}).Debugf("[DEBUG] Incremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad+1)
 	} else {
-		fmt.Printf("[WARNING] Tried to increment load for unknown node %v. Operation skipped.\n", nodeId)
+		logs.Log.WithField("nodeId", nodeId).
+			Warnf("[WARNING] Tried to increment load for unknown node %v. Operation skipped.\n", nodeId)
 	}
 }
 
 func (ts *TScheduler) DecrementLoadBalance(nodeId utils.NodeId) {
 	ts.mu.Lock()
+	logs.Initialize()
 	defer ts.mu.Unlock()
 
 	// Check if the node exists in the load balance map
@@ -448,12 +493,18 @@ func (ts *TScheduler) DecrementLoadBalance(nodeId utils.NodeId) {
 	if ok {
 		if currentLoad > 0 {
 			ts.loadBalance[nodeId]--
-			fmt.Printf("[DEBUG] Decremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad-1)
+			logs.Log.WithFields(logrus.Fields{
+				"nodeId":       nodeId,
+				"previousLoad": currentLoad,
+				"newLoad":      currentLoad - 1,
+			}).Debugf("[DEBUG] Decremented load for node %v. Previous load: %v, New load: %v\n", nodeId, currentLoad, currentLoad-1)
 		} else {
-			fmt.Printf("[WARNING] Tried to decrement load for node %v, but load is already 0. Operation skipped.\n", nodeId)
+			logs.Log.WithField("nodeId", nodeId).
+				Warnf("[WARNING] Tried to decrement load for node %v, but load is already 0. Operation skipped.\n", nodeId)
 		}
 	} else {
-		fmt.Printf("[ERROR] Tried to decrement load for unknown node %v. Operation skipped.\n", nodeId)
+		logs.Log.WithField("nodeId", nodeId).
+			Errorf("[ERROR] Tried to decrement load for unknown node %v. Operation skipped.\n", nodeId)
 	}
 }
 
@@ -470,16 +521,22 @@ func (ts *TScheduler) GetTasksByNodeId(nodeId utils.NodeId) ([]task.Task, bool) 
 
 func (ts *TScheduler) ReassignTasksForNode(nodeId utils.NodeId) {
 	ts.mu.Lock()
+	logs.Initialize()
 	defer ts.mu.Unlock()
 
 	tasks, ok := ts.taskRegistry[nodeId]
 	if !ok {
-		fmt.Printf("[DEBUG] No tasks to reassign for node %v.\n", nodeId)
+		logs.Log.WithField("nodeId", nodeId).
+			Debugf("[DEBUG] No tasks to reassign for node %v.\n", nodeId)
 		return
 	}
 
 	for _, task := range tasks {
-		fmt.Printf("[WARNING] Reassigning task %v (Process: %v) due to node %v failure.\n", task.Id, task.IdProc, nodeId)
+		logs.Log.WithFields(logrus.Fields{
+			"taskId":    task.Id,
+			"processId": task.IdProc,
+			"nodeId":    nodeId,
+		}).Warnf("[WARNING] Reassigning task %v (Process: %v) due to node %v failure.\n", task.Id, task.IdProc, nodeId)
 		ts.taskWaitlist[task.Id] = task
 	}
 
@@ -487,7 +544,8 @@ func (ts *TScheduler) ReassignTasksForNode(nodeId utils.NodeId) {
 	_, exists := ts.loadBalance[nodeId]
 	if exists {
 		ts.loadBalance[nodeId] = 0 // Reset load to avoid inconsistencies
-		fmt.Printf("[DEBUG] Reset load balance for failed node %v.\n", nodeId)
+		logs.Log.WithField("nodeId", nodeId).
+			Debugf("[DEBUG] Reset load balance for failed node %v.\n", nodeId)
 	}
 
 	delete(ts.taskRegistry, nodeId)

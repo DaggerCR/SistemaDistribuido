@@ -3,45 +3,38 @@ package main
 import (
 	"bufio"
 	"distributed-system/internal/system"
+	"distributed-system/logs"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	log := logrus.New()
-	logFile, err := os.OpenFile("system.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error opening log file:", err)
-		return
-	}
-	defer logFile.Close()
-	log.SetOutput(logFile) // write on log file
-	log.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
-	log.SetLevel(logrus.InfoLevel)
-
+	logs.Initialize()
 	reader := bufio.NewReader(os.Stdin)
 	var sys system.System
 	systemUp := false
 	for {
+		logs.Log.WithField("Starting Program with System up", systemUp).Info("Running distributive system...")
 		time.Sleep(500 * time.Millisecond)
-		fmt.Println("Menu:")
-		fmt.Println("1. Start System")
-		fmt.Println("2. View System log")
-		fmt.Println("3. Create task simulated")
-		fmt.Println("4. Add nodes")
-		fmt.Println("5. Exit")
+		fmt.Print("\n\n")
+		fmt.Println("╔════════════════════════════════╗")
+		fmt.Println("║       Distributed System       ║")
+		fmt.Println("║                                ║")
+		fmt.Println("║Menu                            ║")
+		fmt.Println("║ 1. Start System                ║")
+		fmt.Println("║ 2. View System log             ║")
+		fmt.Println("║ 3. Create task simulated       ║")
+		fmt.Println("║ 4. Add nodes                   ║")
+		fmt.Println("║ 5. Exit                        ║")
+		fmt.Println("╚════════════════════════════════╝")
 		fmt.Print("Select an option: ")
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			log.WithError(err).Error("Error reading user input")
+			logs.Log.WithField("Error reading menu option", err).Error("Invalid input")
 			continue
 		}
 		input = strings.TrimSpace(input)
@@ -51,16 +44,17 @@ func main() {
 			if !systemUp {
 				sys = *system.NewSystem()
 				go sys.StartSystem()
-				log.WithField("System start", true).Info("Starting system...")
+				logs.Log.Info("===========================================================================================================Starting system===========================================================================================================")
 				systemUp = true
 			} else {
-				fmt.Println("\nSystem already up ")
+				logs.Log.WithField("The system couldn't be initialized", err).Warn("System already up")
+				fmt.Println("\nSystem already up")
+				continue
 			}
 		case "2":
-			logFileContent, err := os.ReadFile("system.log")
+			logFileContent, err := os.ReadFile("../../logs/system.log")
 			if err != nil {
-				log.WithError(err).Error("Error reading log file")
-				fmt.Println("Error reading log file", err)
+				logs.Log.WithField("Error reading log file", err).Error("log file error")
 				continue
 			}
 			fmt.Println("\n====== LOG =====")
@@ -80,34 +74,36 @@ func main() {
 
 			} else {
 				fmt.Println("\nNo system created yet")
+				logs.Log.WithField("No system created yet", err).Warn("couldnt create a task, the system wasn't up")
 			}
 		case "4":
 			if systemUp {
 				fmt.Println("Input number of nodes to create: \t")
 				input, err := reader.ReadString('\n')
 				if err != nil {
-					log.WithError(err).Error("Error reading user input")
+					logs.Log.WithField("Error reading number of nodes: ", err).Error("invalid input")
 					continue
 				}
 				input = strings.TrimSpace(input)
 				numNodes, err := strconv.Atoi(input)
 				if err != nil {
-					log.WithError(err).Error("Error reading user input")
+					logs.Log.WithField("Error reading number of nodes: ", err).Error("invalid input")
 					continue
 				}
-				log.WithField("Created nodes with quantity ", numNodes).Info("Starting nodes...")
+				logs.Log.WithField("Created nodes with quantity ", numNodes).Info("Starting nodes..")
 				sys.AddNodes(numNodes)
 				continue
 			} else {
 				fmt.Println("\nNo system created yet")
+				logs.Log.WithField("No system created yet", systemUp).Warn("no system found")
 			}
 		case "5":
-			log.Info("Exit system by user decision")
-			fmt.Println("\nExit System...")
+			logs.Log.Info("Exit program by user decision")
+			fmt.Println("\nExit program...")
 			return
 
 		default:
-			log.WithField("Option selected: ", input).Warn("Invalid option selected by user")
+			logs.Log.WithField("Option selected: ", input).Warn("Invalid option selected by user")
 			fmt.Println("Invalid option")
 		}
 	}

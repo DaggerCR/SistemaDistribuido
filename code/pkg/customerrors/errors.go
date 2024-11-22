@@ -1,6 +1,7 @@
 package customerrors
 
 import (
+	"distributed-system/logs"
 	"errors"
 	"fmt"
 )
@@ -8,5 +9,7 @@ import (
 var CreationError = errors.New("error creando elemento")
 
 func HandleError(e error) {
-	fmt.Println("Error: ", e)
+	logs.Initialize()
+	logs.Log.Error("[ERROR] error", e)
+	fmt.Println("Error, check log")
 }

@@ -1,11 +1,13 @@
 package process
 
 import (
-	"fmt"
 	"sync"
 
 	"distributed-system/internal/task"
+	"distributed-system/logs"
 	"distributed-system/pkg/utils"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Process struct {
@@ -54,6 +56,7 @@ func (p *Process) AugmentRes(val float64) {
 }
 
 func (p *Process) CheckFinished() bool {
+	logs.Initialize()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, dependency := range p.dependencies {
@@ -61,12 +64,15 @@ func (p *Process) CheckFinished() bool {
 			return false
 		}
 	}
-	fmt.Printf("\n\n\n\n\n  [INFO]Process with id: %v has finished with final result: %v \n\n\n\n\n", p.id, p.res)
+	logs.Log.WithFields(logrus.Fields{
+		"ProcessID": p.id,
+		"result":    p.res,
+	}).Infof("[INFO]Process with id: %v has finished with final result: %v", p.id, p.res)
+
 	return true
 }
 
 func (p *Process) UpdateTaskStatus(taskId utils.TaskId, status bool) {
-	//fmt.Println("TEST2.1")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	taskModified, ok := p.dependencies[taskId]

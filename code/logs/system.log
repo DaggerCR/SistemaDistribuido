@@ -1,0 +1,23 @@
+time="2024-11-22T01:48:55-06:00" level=info msg="Running distributive system..." Starting Program with System up=false
+time="2024-11-22T01:48:56-06:00" level=info msg="===========================================================================================================Starting system==========================================================================================================="
+time="2024-11-22T01:48:56-06:00" level=info msg="[INFO] System is starting..."
+time="2024-11-22T01:48:56-06:00" level=info msg="Running distributive system..." Starting Program with System up=true
+time="2024-11-22T01:48:56-06:00" level=info msg="[INFO] Loading venv:sucess"
+time="2024-11-22T01:48:56-06:00" level=info msg="[INFO]" Cluster started at port="localhost:9999"
+time="2024-11-22T01:49:00-06:00" level=info msg="Starting nodes.." Created nodes with quantity =1
+time="2024-11-22T01:49:00-06:00" level=info msg="[INFO]" Command is running with PID=425162
+time="2024-11-22T01:49:00-06:00" level=info msg="Running distributive system..." Starting Program with System up=true
+time="2024-11-22T01:49:00-06:00" level=error msg="[Error]" Command exited with code=1
+time="2024-11-22T01:49:00-06:00" level=info msg="[INFO]" Command stderr="stat /home/dagger/Escritorio/SistemaDistribuido/code/cmd/system/cmd/node/main.go: no such file or directory\n"
+time="2024-11-22T01:49:47-06:00" level=info msg="Running distributive system..." Starting Program with System up=false
+time="2024-11-22T01:49:48-06:00" level=info msg="===========================================================================================================Starting system==========================================================================================================="
+time="2024-11-22T01:49:48-06:00" level=info msg="Running distributive system..." Starting Program with System up=true
+time="2024-11-22T01:49:48-06:00" level=info msg="[INFO] System is starting..."
+time="2024-11-22T01:49:48-06:00" level=info msg="[INFO] Loading venv:sucess"
+time="2024-11-22T01:49:48-06:00" level=info msg="[INFO]" Cluster started at port="localhost:9999"
+time="2024-11-22T01:49:50-06:00" level=info msg="Starting nodes.." Created nodes with quantity =1
+time="2024-11-22T01:49:50-06:00" level=info msg="File path/home/dagger/Escritorio/SistemaDistribuido/code/cmd/system/cmd/node/main.go"
+time="2024-11-22T01:49:50-06:00" level=info msg="[INFO]" Command is running with PID=425956
+time="2024-11-22T01:49:50-06:00" level=info msg="Running distributive system..." Starting Program with System up=true
+time="2024-11-22T01:49:50-06:00" level=error msg="[Error]" Command exited with code=1
+time="2024-11-22T01:49:50-06:00" level=info msg="[INFO]" Command stderr="stat /home/dagger/Escritorio/SistemaDistribuido/code/cmd/system/cmd/node/main.go: no such file or directory\n"
