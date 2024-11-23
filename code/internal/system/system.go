@@ -89,10 +89,9 @@ func (s *System) AddNodes(quantity int) {
 			return
 		}
 		cmdPath := filepath.Join(wd, "cmd", "node", "main.go")
-		logs.Log.Info("File path", cmdPath)
 		/*
 			parentDir := filepath.Dir(wd)
-			cmdPath := filepath.Join(parentDir, "node", "main.go")
+			cmdPath = filepath.Join(parentDir, "node", "main.go")
 		*/
 		// Create the command
 		cmd := exec.Command("go", "run", cmdPath, fmt.Sprint(s.GetRandomIdNotInNodes()))
@@ -146,7 +145,7 @@ func (s *System) HandleNodes(conn net.Conn) {
 	for {
 		buffer, err := message.RecieveMessage(conn)
 		if err != nil {
-			logs.Log.WithField("Error reading from client", err).Error("[ERROR]")
+			//logs.Log.WithField("Error reading from client", err).Error("[ERROR]")
 			return
 		}
 		go s.HandleReceivedData(buffer, conn)
@@ -161,10 +160,8 @@ func (s *System) HandleReceivedData(buffer []byte, conn net.Conn) {
 		logs.Log.WithField("Erroneous message received, ignoring...", err).Error("[ERROR]")
 		return
 	}
-	logs.Log.WithField("message recieved", msg.Content).Info("[INFO]")
 	switch msg.Action {
 	case message.Heartbeat:
-		//logs.Log.Info("[INFO] Heartbeat")
 		s.ReceiveHeartbeat(utils.NodeId(msg.Sender))
 	case message.NotifyNodeUp:
 		logs.Log.Info("[INFO] Notify Node Up")

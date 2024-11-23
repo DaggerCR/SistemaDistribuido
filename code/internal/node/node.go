@@ -100,7 +100,7 @@ func (n *Node) Connect(protocol string, address string) error {
 	logs.Initialize()
 	conn, err := net.Dial(protocol, address)
 	if err != nil {
-		logs.Log.WithField("error connecting to a node", err).Error("An error ocurred while connecting nodes")
+		//logs.Log.WithField("error connecting to a node", err).Error("An error ocurred while connecting nodes")
 		return fmt.Errorf("error connecting node: %w", err)
 	}
 	n.conn = conn
@@ -112,7 +112,7 @@ func Panic(protocol string, address string, id int, errorS error) {
 	conn, err := net.Dial(protocol, address)
 	if err != nil {
 		customerrors.HandleError(err)
-		logs.Log.WithField("Pacnic error", err).Error("A panic error in node.go")
+		//logs.Log.WithField("Pacnic error", err).Error("A panic error in node.go")
 		return
 	}
 	defer conn.Close()
@@ -139,11 +139,11 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 		os.Exit(1)
 	} else {
 		msg := message.NewMessageNoTask(message.NotifyNodeUp, "Node created succesfully", id)
-		logs.Log.WithField("Node created succesfully", id).Info(message.NotifyNodeUp)
+		//logs.Log.WithField("Node created succesfully", id).Info(message.NotifyNodeUp)
 		err = message.SendMessage(msg, nnode.Conn())
 	}
 	if err != nil {
-		logs.Log.WithField("error seting connection up", err).Error("An error while trying to set up conection")
+		//logs.Log.WithField("error seting connection up", err).Error("An error while trying to set up conection")
 		return &Node{}, fmt.Errorf("error seting connection up: %w", err)
 	}
 	return nnode, nil
@@ -151,7 +151,6 @@ func SetUpConnection(protocol string, address string, id int) (*Node, error) {
 
 func (n *Node) HandleNodeConnection() error {
 	logs.Initialize()
-	logs.Log.WithField("the Node is starting connection handler", n.id).Info("[INFO]")
 	go n.sendHeartBeat()
 	go n.ExecuteTask()
 
@@ -159,11 +158,8 @@ func (n *Node) HandleNodeConnection() error {
 		buffer, err := message.RecieveMessage(n.conn)
 		if err != nil {
 			if err.Error() == "EOF" {
-				logs.Log.WithField("Connection lost for Node", n.id).Error("[ERROR]")
 				return fmt.Errorf("connection lost for node %v: %w", n.id, err)
 			} else {
-				logs.Log.WithField("Failed to read from connection for Node", n.id).Error("[ERROR]")
-				logs.Log.WithField("error", err).Info("continue: ")
 				fmt.Printf("error, check log")
 			}
 		}
@@ -189,17 +185,13 @@ func (n *Node) HandleReceivedData(buffer []byte) {
 	logs.Initialize()
 	msg, err := message.InterpretMessage(buffer)
 	if err != nil {
-		logs.Log.WithField("Invalid message recieved", n.id).Error("Error handle data received")
 		errorMsg := message.NewMessageNoTask(message.ActionFailure, "Invalid message revieved", n.id)
 		message.SendMessage(errorMsg, n.conn)
 	}
-	logs.Log.WithField("Me, node", n.id).Info("Content recieved correctly")
-	logs.Log.WithField("content", msg.Content).Info("Content recieved correctly")
 	switch msg.Action {
 	case message.AsignTask:
 		n.ReceiveAsignTask(msg.Task, utils.NodeId(msg.Sender))
 	default:
-		logs.Log.WithField("Not implemented yet", msg.Content).Info("Error of implementation")
 	}
 }
 
